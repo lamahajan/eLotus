@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>EduNest Apps</title>
+<meta name="theme-color" content="#fff8f9">
+<link rel="icon" href="school/logo-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/parent-180.png">
+<link rel="preload" href="assets/fonts/gsf.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/app.css">
+<script src="config.js"></script>
+<script type="module">
+  import { CFG, h, icon, applyTheme, registerSW, demoBanner, brandMark, brandWordmark } from './assets/core.js';
+  applyTheme(CFG.themeColor);
+  registerSW();
+  const choice = (href, cls, ic, title, sub) => h('a', { class: 'choice ' + cls, href },
+    h('div', { class: 'ci' }, icon(ic)), h('div', null, h('b', null, title), h('span', null, sub)), icon('arrow_forward'));
+  document.getElementById('app').replaceChildren(h('div', { class: 'page' }, h('div', { class: 'content' }, h('div', { class: 'chooser' },
+    brandWordmark() || h('div', null, brandMark('school-fill'), h('h1', null, CFG.schoolName || 'EduNest')),
+    h('p', null, 'Choose your app'),
+    choice('parent/', 'a', 'family_restroom', 'Parent App', 'Fees, attendance and homework'),
+    choice('teacher/', 'b', 'co_present', 'Teacher App', 'Post homework for your classes'),
+    demoBanner()))));
+  if (CFG.schoolName) document.title = CFG.schoolName;
+</script>
+</head>
+<body><div id="app"></div></body>
+</html>

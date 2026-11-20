@@ -1,0 +1,68 @@
+rules_version = '2';
+
+// EduNest Parent App + Teacher App - Firestore security rules.
+// Paste this whole file in Firebase console > Firestore Database > Rules, then press Publish.
+//
+// Who is who (the claims are put on every login by the school's EduNest server):
+//   parent   token.r == 'p', token.a = admission numbers of the family's children, token.s = their section ids (e.g. 5TH-A)
+//   teacher  token.r == 't', token.s = section ids the teacher teaches / is class teacher of
+// EduNest itself writes with a service account, which is not bound by these rules.
+// Nobody can list a collection: every read is one document by its id.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function isParent() { return signedIn() && request.auth.token.r == 'p'; }
+    function isTeacher() { return signedIn() && request.auth.token.r == 't'; }
+    function secOf(id) { return id.split('_')[0]; }                 // homework id = <secId>_<yyyy-mm-dd>
+    function mySection(id) { return secOf(id) in request.auth.token.s; }
+
+    // Login helpers: admission no -> family account, teacher login name -> teacher account. Nothing personal inside.
+    match /loginIndex/{adm} { allow get: if true; allow list, write: if false; }
+    match /tLogin/{user}    { allow get: if true; allow list, write: if false; }
+
+    // School name / app name (shown on the login screen).
+    match /meta/{doc}       { allow get: if true; allow list, write: if false; }
+
+    // A parent reads only their own children.
+    match /students/{adm} {
+      allow get: if isParent() && adm in request.auth.token.a;
+      allow list, write: if false;
+    }
+
+    // A teacher reads only their own record (sections, subjects).
+    match /teachers/{uid} {
+      allow get: if isTeacher() && request.auth.uid == uid;
+      allow list, write: if false;
+    }
+
+    // Homework: one document per section per day, subjects in a map.
+    match /homework/{id} {
+      function me() { return get(/databases/$(database)/documents/teachers/$(request.auth.uid)).data; }
+      // subjects this teacher may write in this section: own subjects there, plus every subject of the class for the class teacher
+      function allowed(id) {
+        let t = me();
+        let own = t.secs.get(secOf(id), []);
+        return t.ct == secOf(id) ? own.concat(t.ctSubj.keys()) : own;
+      }
+      function shapeOk(id) {
+        return request.resource.data.keys().hasOnly(['subjects', 'secId', 'date', 'upd'])
+          && request.resource.data.secId == secOf(id)
+          && request.resource.data.date == id.split('_')[1]
+          && request.resource.data.subjects is map;
+      }
+
+      allow get: if (isParent() || isTeacher()) && mySection(id);
+      allow list: if false;
+      allow create: if isTeacher() && mySection(id) && shapeOk(id)
+        && request.resource.data.subjects.keys().hasOnly(allowed(id));
+      allow update: if isTeacher() && mySection(id) && shapeOk(id)
+        && request.resource.data.subjects.diff(resource.data.subjects).affectedKeys().hasOnly(allowed(id));
+      allow delete: if false;
+    }
+
+    // everything else: closed
+    match /{other=**} { allow read, write: if false; }
+  }
+}
