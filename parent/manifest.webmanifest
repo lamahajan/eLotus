@@ -1,0 +1,36 @@
+{
+  "id": "./",
+  "name": "Parent App",
+  "short_name": "Parent App",
+  "description": "Fees, attendance and homework: your child's school updates.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fff8f9",
+  "theme_color": "#fff8f9",
+  "lang": "en-IN",
+  "categories": [
+    "education"
+  ],
+  "icons": [
+    {
+      "src": "../icons/parent-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../icons/parent-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../icons/parent-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
