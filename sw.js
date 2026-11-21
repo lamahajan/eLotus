@@ -1,5 +1,5 @@
 // EduNest web apps: offline support. Change VERSION on every release so phones pick up the new files.
-const VERSION = 'edunest-web-1.7.1-mobile-opt';
+const VERSION = 'edunest-web-1.7.1-p1';
 const SHELL = [
   './', 'index.html', 'config.js',
   'assets/app.css', 'assets/core.js', 'assets/lib.js', 'assets/icons.js', 'assets/demo.js', 'assets/fonts/gsf.woff2',

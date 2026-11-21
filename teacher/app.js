@@ -114,7 +114,7 @@ function showLogin() {
   const err = h('div', { class: 'login-err', role: 'alert', hidden: true });
   const showErr = (m) => { err.hidden = !m; clear(err).append(icon('error'), h('span', null, m || '')); };
   const fU = field({ label: 'Username or mobile number', lead: 'person', helper: 'e.g. ravi.kumar, or your 10-digit mobile', autocomplete: 'username', name: 'username', onenter: () => fP.input.focus() });
-  const fP = field({ label: 'Password', type: 'password', lead: 'lock', helper: 'Password: your mobile number (10 digits)', autocomplete: 'current-password', name: 'password', onenter: () => go() });
+  const fP = field({ label: 'Password', type: 'password', lead: 'lock', autocomplete: 'current-password', name: 'password', onenter: () => go() });
   fU.input.value = Prefs.get('lastUser') || '';
   const go = async () => {
     const user = fU.input.value.trim().toLowerCase(), pw = fP.input.value;
