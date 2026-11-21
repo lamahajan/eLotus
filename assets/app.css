@@ -1518,7 +1518,7 @@ body { letter-spacing: -0.01em; }
 .kid-switch .n { font-size: 12.5px; font-weight: 750; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kid-switch .c { font-size: 10px; font-weight: 650; color: var(--secondary); line-height: 1.15; white-space: nowrap; }
 .avatar { background: linear-gradient(135deg, #0A84FF, #5E5CE6) !important; color: #fff !important; }
-.avatar.g2 { background: linear-gradient(135deg, #FF375F, #BF5AF2) !important; }
+.avatar.g2 { background: linear-gradient(135deg, var(--tertiary, #FF375F), var(--secondary, #BF5AF2)) !important; }
 
 /* floating frosted dock */
 .navbar { position: absolute; left: 50%; bottom: calc(14px + var(--sab)); transform: translateX(-50%); width: calc(100% - 28px); max-width: 430px;
@@ -1642,7 +1642,7 @@ body { letter-spacing: -0.01em; }
 /* student ID card (wallet style) */
 .idcard { width: calc(100% - 32px); margin: 0 auto 16px; border-radius: var(--r-card); padding: 20px; color: #fff; position: relative; overflow: hidden;
   background: linear-gradient(135deg, #2b1055 0%, #7597de 100%); box-shadow: 0 16px 40px -10px rgba(117,151,222,0.45); transition: transform 0.4s var(--apple); }
-.idcard.g2 { background: linear-gradient(135deg, #59164C 0%, #FF375F 100%); box-shadow: 0 16px 40px -10px rgba(255,55,95,0.35); }
+.idcard.g2 { background: linear-gradient(135deg, var(--tertiary30, #59164C) 0%, var(--tertiary, #FF375F) 100%); box-shadow: var(--e2, 0 16px 40px -10px rgba(0,0,0,0.25)); }
 .idcard:active { transform: rotateY(10deg) rotateX(5deg) scale(1.02); }
 .idcard .holo { position: absolute; top: 0; right: 28px; width: 44px; height: 100%; transform: skewX(-18deg); pointer-events: none;
   background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.22), rgba(255,255,255,0.05)); }
@@ -1754,7 +1754,7 @@ body { letter-spacing: -0.01em; }
 .ncard { width: calc(100% - 32px); margin: 0 auto 14px; border-radius: var(--r-card); padding: 18px 20px; color: #fff; position: relative; overflow: hidden;
   background: linear-gradient(135deg, #3a1c71 0%, #5E5CE6 100%); box-shadow: 0 14px 34px -12px rgba(94,92,230,0.5); }
 .ncard.cls { background: linear-gradient(135deg, #0b3a6f 0%, #0A84FF 100%); box-shadow: 0 14px 34px -12px rgba(10,132,255,0.45); }
-.ncard.pin { background: linear-gradient(135deg, #59164C 0%, #FF375F 100%); box-shadow: 0 14px 34px -12px rgba(255,55,95,0.4); }
+.ncard.pin { background: linear-gradient(135deg, var(--tertiary30, #59164C) 0%, var(--tertiary, #FF375F) 100%); box-shadow: var(--e2, 0 14px 34px -12px rgba(0,0,0,0.3)); }
 .ncard .holo { position: absolute; top: 0; right: 28px; width: 44px; height: 100%; transform: skewX(-18deg); pointer-events: none;
   background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.2), rgba(255,255,255,0.05)); }
 .ncard .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 11px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 12px; }

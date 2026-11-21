@@ -19,7 +19,7 @@ Two web apps for the school, connected to **EduNest** through Firebase:
   2. From the phone: put the Principal in **Setup > Teachers** with a 10-digit mobile and their EduNest login (role Principal or Administrator).
      In the Teacher App, *Post a notice* then shows **Whole school**. Teachers only get their own classes.
 - Today's notices show as cards at the top of the dashboard; the Notices tile opens all of them.
-- **Teachers** can log in with their username **or** their mobile number. A teacher without an EduNest login user now also gets the app (login = mobile).
+- **Teachers** log in with their **username** (the Login box says "Username"). A teacher without an EduNest login user still gets the app (login = mobile).
 - **Force push all data now** (top of Cloud Sync) sends everything again at once.
 - Dark look by default; the sun / moon button switches to light.
 
@@ -101,7 +101,8 @@ window.EDUNEST = {
     appId: '1:1234567890:web:abc123',
   },
   schoolName: 'Lotus International School',
-  themeColor: '#59164C',                      // the whole app is coloured from this
+  themeColor: '#59164C',                      // Teacher App colour (plum)
+  parentThemeColor: '#0B57D0',                // Parent App colour (blue)
   logo: 'school/logo.webp',                   // round logo
   logoName: 'school/logo-name.webp',          // logo with school name (light mode)
   logoNameDark: 'school/logo-name-dark.webp', // same with white letters (dark mode)

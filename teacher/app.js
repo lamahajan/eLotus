@@ -113,7 +113,7 @@ async function logout(silent) {
 function showLogin() {
   const err = h('div', { class: 'login-err', role: 'alert', hidden: true });
   const showErr = (m) => { err.hidden = !m; clear(err).append(icon('error'), h('span', null, m || '')); };
-  const fU = field({ label: 'Username or mobile number', lead: 'person', helper: 'e.g. ravi.kumar, or your 10-digit mobile', autocomplete: 'username', name: 'username', onenter: () => fP.input.focus() });
+  const fU = field({ label: 'Username', lead: 'person', helper: 'e.g. ravi.kumar', autocomplete: 'username', name: 'username', onenter: () => fP.input.focus() });
   const fP = field({ label: 'Password', type: 'password', lead: 'lock', inputmode: 'numeric', pattern: '[0-9]*', autocomplete: 'current-password', name: 'password', onenter: () => go() });
   fU.input.value = Prefs.get('lastUser') || '';
   const go = async () => {
@@ -126,7 +126,7 @@ function showLogin() {
       let idx;
       try { idx = await a.getServer('tLogin/' + user); } catch { throw new Error('No internet connection. Please try again.'); }
       const uid = idx.data?.t;
-      if (!idx.exists || !uid) throw new Error('This username / mobile number was not found. Your mobile number must be saved in EduNest (Setup > Teachers). Please contact the office.');
+      if (!idx.exists || !uid) throw new Error('This username was not found. Please check it or contact the office.');
       Prefs.set('lastUser', user);
       try { await a.signIn(`${uid}@${DOMAIN}`, pw); } catch (e) { throw new Error(loginErrorText(e.code, 't')); }
     } catch (e) { showErr(e.message); setBusy(b, false); }

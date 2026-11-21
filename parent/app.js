@@ -13,7 +13,7 @@ import {
 } from '../assets/core.js';
 
 const HOUR = 3600e3, MIN = 60e3;
-applyTheme(CFG.themeColor);
+applyTheme(CFG.parentThemeColor || '#0B57D0');   // Parent App = blue (the Teacher App uses the school colour, plum)
 registerSW();
 const root = document.getElementById('app');
 document.body.append(offlineChip());
@@ -380,7 +380,7 @@ function showHome() {
     const due = s.feeDue > 0, link = due ? upiLink(s.upi, s.feeDue) : '';
     const total = s.feePaid + s.feeDue, pct = total ? Math.round((s.feePaid * 100) / total) : 100;
     const pay = due
-      ? (link ? h('a', { class: 'pay-btn', href: link, onclick: (e) => payNow(e, s, link) }, icon('wallet'), `Pay Now ${rupees(s.feeDue)}`)
+      ? (link ? h('a', { class: 'pay-btn', href: link }, icon('wallet'), `Pay Now ${rupees(s.feeDue)}`)
         : h('div', { class: 'pay-note', style: { marginTop: '14px', fontSize: '12px' } }, 'Online payment is not available for this student yet. Please pay at the school office.'))
       : h('div', { class: 'pay-btn', 'aria-disabled': 'true' }, icon('check_circle'), 'Nil dues · Account up to date');
     return h('div', null,
@@ -515,21 +515,6 @@ function noticeWallet(n) {
 function allNotices(ns) {
   pushPage('Notices', ns.length ? h('div', { style: { paddingTop: '8px' } }, ns.map(noticeCard))
     : messageBox('campaign', 'No notices right now. School announcements and messages from the class teacher show here.'));
-}
-
-/// Pay Now: on a phone the UPI link opens the UPI app chooser. On a computer (or when no UPI app opened) the QR / UPI id is shown.
-function payNow(e, s, link) {
-  const show = () => sheet(() => h('div', { style: { textAlign: 'center' } },
-    h('h3', { style: { margin: '0 0 4px' } }, 'Pay ' + rupees(s.feeDue)),
-    h('div', { class: 'sub', style: { margin: '0 0 8px' } }, `${s.name} · Adm ${s.adm}`),
-    s.qr ? h('div', { class: 'qrbox' }, h('img', { src: s.qr, alt: 'UPI QR code', referrerpolicy: 'no-referrer' })) : null,
-    s.qr ? h('div', { class: 'foot-note', style: { margin: '4px 0 10px' } }, `Scan with any UPI app and enter ${rupees(s.feeDue)}.`) : null,
-    upiParam(link, 'pa') ? h('div', { class: 'copyrow' }, h('span', null, 'UPI ID: ', h('b', null, upiParam(link, 'pa'))),
-      iconBtn('content_copy', async () => { try { await navigator.clipboard.writeText(upiParam(link, 'pa')); snackbar('UPI ID copied'); } catch { snackbar('Could not copy'); } }, 'Copy')) : null,
-    h('a', { class: 'pay-btn', href: link, style: { background: 'var(--primary)', color: '#fff' } }, icon('wallet'), 'Open UPI app'),
-    h('div', { class: 'foot-note' }, 'The amount is filled in for you. After paying, the receipt appears in the app within a few minutes.')));
-  if (!isPhone()) { e.preventDefault(); show(); return; }
-  setTimeout(() => { if (!document.hidden) show(); }, 2200);   // no UPI app answered: show the QR instead
 }
 
 function dayBlock(d, badge, secId) {
