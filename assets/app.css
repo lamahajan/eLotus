@@ -1415,6 +1415,10 @@ a { color: var(--primary); }
 }
 .mk-row.chg { background: var(--secondary-container); }
 .mk-row.bad { background: var(--error-container); }
+.mk-row.lk .mk-in { background: var(--surface-container-high); color: var(--on-surface-variant); border-color: transparent; }
+.mk-row.lk .mk-in::placeholder { color: var(--on-surface-variant); opacity: 0.8; }
+.mk-row.lk .mk-ab { opacity: 0.4; }
+.mk-row.ul { background: var(--tertiary-container); }
 .mk-roll { font-size: 13px; font-weight: 600; color: var(--on-surface-variant); text-align: center; }
 .mk-name { min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
 .mk-name b { font-weight: 600; font-size: 14px; color: var(--on-surface); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

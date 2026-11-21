@@ -22,7 +22,7 @@ const strMap = (m) => Object.fromEntries(Object.entries(m && typeof m === 'objec
 function toTeacher(uid, d) {
   const secs = {};
   for (const [k, v] of Object.entries(d.secs && typeof d.secs === 'object' ? d.secs : {})) secs[k] = Array.isArray(v) ? v.map(String) : [];
-  const t = { uid, name: String(d.name ?? ''), ct: String(d.ct ?? ''), secs, subj: strMap(d.subj), ctSubj: strMap(d.ctSubj) };
+  const t = { uid, name: String(d.name ?? ''), ct: String(d.ct ?? ''), secs, subj: strMap(d.subj), ctSubj: strMap(d.ctSubj), sf: d.sf === true };
   t.nameOf = (k) => t.subj[k] ?? t.ctSubj[k] ?? k;
   /// own class first, then the rest in order
   t.sections = (() => {
@@ -590,7 +590,9 @@ function openMarks(t, secId) {
   const codes = () => ((st.cfg?.terms || []).find((x) => x.id === st.term)?.c || []).filter((c) => subjects().some((s) => s.mx[c]));
   const subsFor = () => subjects().filter((s) => s.mx[st.code]);
   const asName = (c) => st.cfg?.as?.[c] || c;
-  const dirty = () => st.rows.filter((r) => mkParse(r.input.value, r.max) !== r.orig).length;
+  /// A row's current value. A locked row (a mark already saved, not unlocked by the school) can't change: it always counts as its saved value.
+  const val = (r) => (r.locked ? r.orig : mkParse(r.input.value, r.max));
+  const dirty = () => st.rows.filter((r) => !r.locked && val(r) !== r.orig).length;
 
   function fix() {
     const T = terms();
@@ -662,23 +664,33 @@ function openMarks(t, secId) {
     const studs = (st.cfg.st || []).filter((x) => Number(keys[x.k]?.[st.subj]?.mx?.[st.code]) > 0)
       .sort((p, q) => (Number(p.r) || 9999) - (Number(q.r) || 9999) || String(p.n).localeCompare(String(q.n)));
     const m = st.sheet?.m || {};
+    const ul = st.sheet?.ul && typeof st.sheet.ul === 'object' ? st.sheet.ul : {};
+    const seeAll = !!t.sf;
     const count = h('span', { class: 'pill' });
     const saveBar = h('div', { class: 'mk-save' });
     const upd = () => {
-      const filled = st.rows.filter((r) => mkParse(r.input.value, r.max) !== '').length, d = dirty();
+      const filled = st.rows.filter((r) => val(r) !== '').length, d = dirty();
       clear(count).append(`${filled}/${st.rows.length} entered`);
       count.className = 'pill' + (filled === st.rows.length && st.rows.length ? ' ok' : '');
-      bSave.disabled = !d || st.rows.some((r) => mkParse(r.input.value, r.max) === false);
+      bSave.disabled = !d || st.rows.some((r) => val(r) === false);
       clear(bSaveLabel).append(d ? `Save ${d} ${d === 1 ? 'change' : 'changes'}` : 'Saved');
     };
     st.rows = studs.map((x) => {
       const mx = Number(keys[x.k][st.subj].mx[st.code]) || max;
       const orig = m[x.a] === undefined ? '' : (String(m[x.a]).toUpperCase() === 'AB' ? 'AB' : Number(m[x.a]));
-      const input = h('input', { class: 'mk-in', type: 'text', inputmode: 'decimal', autocomplete: 'off', enterkeyhint: 'next', value: mkShow(orig), 'aria-label': `${x.n} marks out of ${mx}` });
+      const locked = orig !== '' && ul[x.a] !== true;
+      const input = h('input', { class: 'mk-in', type: 'text', inputmode: 'decimal', autocomplete: 'off', enterkeyhint: 'next', value: locked && !seeAll ? '' : mkShow(orig), placeholder: locked && !seeAll ? '🔒' : '', 'aria-label': `${x.n} marks out of ${mx}` });
       const ab = h('button', { class: 'mk-ab', type: 'button', 'aria-label': 'Absent', title: 'Absent' }, 'AB');
       const row = h('div', { class: 'mk-row' }, h('div', { class: 'mk-roll' }, x.r || ''), h('div', { class: 'mk-name' }, h('b', null, x.n), h('small', null, 'Adm ' + x.a)), input, ab);
-      const r = { adm: x.a, max: mx, orig, input, row };
+      const r = { adm: x.a, max: mx, orig, input, row, locked };
+      r.lock = (on) => {
+        r.locked = on; input.disabled = on; ab.disabled = on;
+        row.classList.toggle('lk', on); row.classList.toggle('ul', !on && r.orig !== '' && ul[x.a] === true);
+        if (on) { input.value = seeAll ? mkShow(r.orig) : ''; input.placeholder = seeAll ? '' : '🔒'; row.classList.remove('chg', 'bad'); ab.classList.toggle('on', seeAll && r.orig === 'AB'); }
+      };
+      r.lock(locked);
       const check = () => {
+        if (r.locked) { upd(); return; }
         const v = mkParse(input.value, mx);
         row.classList.toggle('bad', v === false); row.classList.toggle('chg', v !== false && v !== orig); ab.classList.toggle('on', v === 'AB'); upd();
       };
@@ -690,7 +702,7 @@ function openMarks(t, secId) {
         if (e.key === 'Enter') {
           e.preventDefault();
           const i = st.rows.indexOf(r);
-          const next = st.rows[i + 1]?.input || input;
+          const next = st.rows.slice(i + 1).find((q) => !q.locked)?.input || input;
           next.focus();
           try { next.select(); } catch {}
           setTimeout(() => next.scrollIntoView({ block: 'center', behavior: 'smooth' }), 100);
@@ -703,17 +715,24 @@ function openMarks(t, secId) {
     const bSave = btn('filled', 'Saved', () => save(), { icon: 'check', class: 'btn-big mk-btn', disabled: true });
     const bSaveLabel = bSave.querySelector('.btn-label');
     async function save() {
-      const cells = {};
+      const cells = {}, relock = [];
       for (const r of st.rows) {
+        if (r.locked) continue;
         const v = mkParse(r.input.value, r.max);
         if (v === false) { r.input.focus(); return snackbar(`Marks must be 0 to ${r.max} or AB`); }
-        if (v !== r.orig) cells[r.adm] = v === '' ? null : v;
+        if (v !== r.orig) { cells[r.adm] = v === '' ? null : v; if (ul[r.adm] === true) relock.push(r.adm); }
       }
       if (!Object.keys(cells).length) return;
       setBusy(bSave, true);
       try {
-        await a.saveCells(path(), { secId, session: st.cfg.session, term: st.term, code: st.code, subj: st.subj }, cells, t.name);
-        for (const r of st.rows) { if (r.adm in cells) r.orig = cells[r.adm] === null ? '' : cells[r.adm]; r.input.dispatchEvent(new Event('input')); }
+        await a.saveCells(path(), { secId, session: st.cfg.session, term: st.term, code: st.code, subj: st.subj }, cells, t.name, relock);
+        if (st.sheet) { st.sheet.m = { ...(st.sheet.m || {}) }; for (const k of Object.keys(cells)) { if (cells[k] === null) delete st.sheet.m[k]; else st.sheet.m[k] = cells[k]; } }
+        for (const k of relock) delete ul[k];
+        for (const r of st.rows) {
+          if (r.adm in cells) r.orig = cells[r.adm] === null ? '' : cells[r.adm];
+          r.input.dispatchEvent(new Event('input'));
+          if (relock.includes(r.adm) && r.orig !== '') r.lock(true);   // saved after an unlock: locked again
+        }
         snackbar('Marks saved. They reach EduNest within a minute.');
       } catch (e) { snackbar(errorText(e)); }
       setBusy(bSave, false); upd();
@@ -723,7 +742,7 @@ function openMarks(t, secId) {
     sheetBox.append(
       h('div', { class: 'section-label', style: { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' } },
         `${subName} · ${asName(st.code)} · Max ${max}`, count),
-      h('div', { class: 'mk-help' }, `Type marks, or tap AB for absent. ${by}.`),
+      h('div', { class: 'mk-help' }, `Type marks, or tap AB for absent. ${by}.${st.rows.some((r) => r.locked) ? ' 🔒 Marks already saved are locked — ask the school office to unlock one for a correction.' : ''}`),
       studs.length ? h('div', { class: 'mk-list' }, st.rows.map((r) => r.row)) : messageBox('groups', 'No student of this section has this subject.'),
       saveBar);
     saveBar.append(bSave);

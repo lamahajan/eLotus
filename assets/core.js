@@ -201,9 +201,11 @@ function firebaseApi() {
     setMerge: (path, data) => wrap(F.setDoc(F.doc(db, path), data, { merge: true })),
     removeField: (path, field, extra) => wrap(F.updateDoc(F.doc(db, path), { [field]: F.deleteField(), ...extra })),
     /// exam marks: only the changed cells of one sheet (null = clear that mark); upd is the server's clock (EduNest picks changes up by it)
-    saveCells: (path, head, cells, by) => wrap(F.setDoc(F.doc(db, path), {
+    /// ulClear: students whose school unlock was used by this save: their `ul` flag is removed, which locks the cell again
+    saveCells: (path, head, cells, by, ulClear) => wrap(F.setDoc(F.doc(db, path), {
       ...head, by: String(by || ''), src: 't', upd: F.serverTimestamp(),
       m: Object.fromEntries(Object.entries(cells).map(([k, v]) => [k, v === null ? F.deleteField() : v])),
+      ...(ulClear && ulClear.length ? { ul: Object.fromEntries(ulClear.map((k) => [k, F.deleteField()])) } : {}),
     }, { merge: true })),
   };
 }

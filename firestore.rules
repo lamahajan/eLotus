@@ -77,13 +77,24 @@ service cloud.firestore {
       function sheetOk(x) {
         let d = request.resource.data;
         return parts(x).size() == 5
-          && d.keys().hasOnly(['secId', 'session', 'term', 'code', 'subj', 'm', 'upd', 'by', 'src'])
+          && d.keys().hasOnly(['secId', 'session', 'term', 'code', 'subj', 'm', 'upd', 'by', 'src', 'ul'])
           && d.secId == parts(x)[0] && d.subj == parts(x)[4] && d.m is map && d.m.size() <= 200
           && d.upd == request.time && d.src == 't' && d.by is string;
       }
       allow get: if isTeacher() && parts(id).size() == 5 && parts(id)[0] in request.auth.token.s;
       allow list, delete: if false;
-      allow create, update: if isTeacher() && sheetOk(id) && parts(id)[0] in request.auth.token.s && mayWrite(parts(id)[0], parts(id)[4]);
+      // Lock: a mark that is already saved can be changed or removed only if EduNest unlocked that student (ul.{adm} == true).
+      // A teacher can never add to `ul`, only lose entries (re-lock after saving). New cells (blank before) are always allowed.
+      function lockOk() {
+        let d = request.resource.data;
+        return resource == null
+          ? !('ul' in d)
+          : (d.m.diff(resource.data.m).changedKeys().hasOnly(resource.data.get('ul', {}).keys())
+             && resource.data.m.diff(d.m).removedKeys().hasOnly(resource.data.get('ul', {}).keys())
+             && resource.data.get('ul', {}).diff(d.get('ul', {})).addedKeys().size() == 0
+             && resource.data.get('ul', {}).diff(d.get('ul', {})).changedKeys().size() == 0);
+      }
+      allow create, update: if isTeacher() && sheetOk(id) && lockOk() && parts(id)[0] in request.auth.token.s && mayWrite(parts(id)[0], parts(id)[4]);
     }
 
     // Notices from the school (EduNest > Cloud Sync > Parent App > Notices): one document, written by EduNest only.

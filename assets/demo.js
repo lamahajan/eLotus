@@ -79,7 +79,7 @@ function seed() {
   docs['mkcfg/6TH-A'] = { ...mkcfg('6TH-A', [['1070', 'Tanvi Bedi', '1'], ['1072', 'Yash Arora', '3']]), keys: { '6TH': sub5 } };
   docs['mkcfg/6TH-A'].st.forEach((x) => { x.k = '6TH'; });
   docs['marks/5TH-A~2026-2027~T1~PT~maths'] = { secId: '5TH-A', session: '2026-2027', term: 'T1', code: 'PT', subj: 'maths', by: 'Ravi Kumar', src: 't', upd: Date.now() - 86400e3,
-    m: { 1024: 18, 1031: 17.5, 1036: 'AB', 1040: 20, 1047: 14 } };
+    m: { 1024: 18, 1031: 17.5, 1036: 'AB', 1040: 20, 1047: 14 }, ul: { 1040: true } };
   return docs;
 }
 
@@ -120,12 +120,13 @@ export function demoApi() {
       docs[path] = { ...cur, ...data, subjects: { ...(cur.subjects || {}), ...(data.subjects || {}) }, ...(data.n || cur.n ? { n: { ...(cur.n || {}), ...(data.n || {}) } } : {}), ...(data.list ? { list: data.list } : {}) };
       cache.add(path); persist();
     },
-    saveCells: async (path, head, cells, by) => {
+    saveCells: async (path, head, cells, by, ulClear) => {
       await wait(350);
       const cur = docs[path] || { m: {} };
       const m = { ...(cur.m || {}) };
       for (const [k, v] of Object.entries(cells)) { if (v === null) delete m[k]; else m[k] = v; }
-      docs[path] = { ...cur, ...head, by, src: 't', upd: Date.now(), m };
+      const ul = { ...(cur.ul || {}) }; for (const k of ulClear || []) delete ul[k];
+      docs[path] = { ...cur, ...head, by, src: 't', upd: Date.now(), m, ul };
       cache.add(path); persist();
     },
     removeField: async (path, field, extra) => {
