@@ -335,10 +335,10 @@ export function setBusy(b, busy) {
 }
 
 /// Material outlined text field with floating label.
-export function field({ label, type = 'text', value = '', helper, lead, inputmode, autocomplete, multiline, rows = 4, maxlength, onenter, name, autocapitalize }) {
+export function field({ label, type = 'text', value = '', helper, lead, inputmode, autocomplete, multiline, rows = 4, maxlength, onenter, name, autocapitalize, pattern }) {
   const input = multiline
     ? h('textarea', { rows, placeholder: ' ', maxlength, autocapitalize: autocapitalize || 'sentences' })
-    : h('input', { type, placeholder: ' ', inputmode, autocomplete, name, spellcheck: 'false', autocapitalize: autocapitalize || 'off', maxlength });
+    : h('input', { type, placeholder: ' ', inputmode, autocomplete, name, spellcheck: 'false', autocapitalize: autocapitalize || 'off', maxlength, pattern });
   input.value = value;
   const id = 'f' + Math.random().toString(36).slice(2, 8);
   input.id = id;

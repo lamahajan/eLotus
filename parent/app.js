@@ -160,8 +160,8 @@ async function showLogin() {
   const title = h('h1', null, CFG.schoolName || 'Parent Login');
   const err = h('div', { class: 'login-err', role: 'alert', hidden: true });
   const showErr = (m) => { err.hidden = !m; clear(err).append(icon('error'), h('span', null, m || '')); };
-  const fAdm = field({ label: 'Admission No', lead: 'badge', inputmode: 'numeric', autocomplete: 'username', name: 'username', onenter: () => fPw.input.focus() });
-  const fPw = field({ label: 'Password', type: 'password', lead: 'lock', autocomplete: 'current-password', name: 'password', onenter: () => go() });
+  const fAdm = field({ label: 'Admission No', lead: 'badge', inputmode: 'numeric', pattern: '[0-9]*', autocomplete: 'username', name: 'username', onenter: () => fPw.input.focus() });
+  const fPw = field({ label: 'Password', type: 'password', lead: 'lock', inputmode: 'numeric', pattern: '[0-9]*', autocomplete: 'current-password', name: 'password', onenter: () => go() });
   fAdm.input.value = Prefs.get('lastAdm') || '';
   const go = async () => {
     const adm = fAdm.input.value.trim(), pw = fPw.input.value;
