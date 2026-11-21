@@ -161,7 +161,7 @@ async function showLogin() {
   const err = h('div', { class: 'login-err', role: 'alert', hidden: true });
   const showErr = (m) => { err.hidden = !m; clear(err).append(icon('error'), h('span', null, m || '')); };
   const fAdm = field({ label: 'Admission No', lead: 'badge', inputmode: 'numeric', autocomplete: 'username', name: 'username', onenter: () => fPw.input.focus() });
-  const fPw = field({ label: 'Password', type: 'password', lead: 'lock', helper: 'Password: Mobile No 1 (10 digits)', autocomplete: 'current-password', name: 'password', onenter: () => go() });
+  const fPw = field({ label: 'Password', type: 'password', lead: 'lock', helper: 'Password: Mobile No (10 digits)', autocomplete: 'current-password', name: 'password', onenter: () => go() });
   fAdm.input.value = Prefs.get('lastAdm') || '';
   const go = async () => {
     const adm = fAdm.input.value.trim(), pw = fPw.input.value;
@@ -173,7 +173,7 @@ async function showLogin() {
       let idx;
       try { idx = await a.getServer('loginIndex/' + adm); } catch { throw new Error('No internet connection. Please try again.'); }
       const fam = idx.data?.f;
-      if (!idx.exists || !fam) throw new Error('This Admission No was not found (or Mobile No 1 is missing at school). Please contact the school office.');
+      if (!idx.exists || !fam) throw new Error('This Admission No was not found (or Mobile No is missing at school). Please contact the school office.');
       Prefs.set('lastAdm', adm);
       try { await a.signIn(`${fam}@${DOMAIN}`, pw); } catch (e) { throw new Error(loginErrorText(e.code, 'p')); }
     } catch (e) {

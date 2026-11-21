@@ -238,11 +238,11 @@ export async function getFresh(path, maxAgeMs, force = false) {
 }
 
 export function loginErrorText(code, who) {
-  const first = who === 'p' ? 'Mobile No 1 (10 digits)' : 'your mobile number (10 digits)';
+  const first = who === 'p' ? 'Mobile No (10 digits)' : 'your mobile number (10 digits)';
   const office = who === 'p' ? 'school office' : 'office';
   switch (code) {
     case 'wrong-password': case 'invalid-credential': case 'invalid-login-credentials': case 'user-not-found':
-      return who === 'p' ? `Wrong password. The password is Mobile No 1 (10 digits) given in the admission form. If the number was changed, ask the ${office}.`
+      return who === 'p' ? `Wrong password. The password is Mobile No (10 digits) given in the admission form. If the number was changed, ask the ${office}.`
         : `Wrong password. The password is ${first} saved at school. If it does not work, ask the ${office}.`;
     case 'user-disabled': return `This login is blocked. Please contact the ${office}.`;
     case 'too-many-requests': return 'Too many wrong attempts. Please try again after some time.';

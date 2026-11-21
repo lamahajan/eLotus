@@ -55,8 +55,8 @@ EduNest (school PC)  --->  Firebase (Firestore + Authentication)  --->  Parent A
 - A GitHub account (free hosting for the apps).
 - EduNest **1.0.52 or newer** running on the school server.
 - In EduNest:
-  - every student has **Mobile No 1** (10 digits) in the Admission form. This number is the parent's password (always; it cannot be changed in the app);
-    brothers and sisters with the same Mobile No 1 share one login.
+  - every student has **Mobile No** (10 digits) in the Admission form. This number is the parent's password (always; it cannot be changed in the app);
+    brothers and sisters with the same Mobile No share one login.
   - every teacher is in **Setup > Classes > Teachers** with a **10-digit mobile** and an **active login user**
     (User Management), and is set as subject teacher (Academics Setup) and / or class teacher.
 
@@ -83,9 +83,9 @@ On the school server, sign in to EduNest as Administrator:
 6. **Full sync every morning after (hour)**: `6` (= 6 am). See section 7.
 7. Press **Test**. You should see three green lines: *Google accepted the key*, *Firestore: connected*, *Authentication: connected*.
 8. Press **Save**, then **Fetch all data now**. The result shows how many students, parent logins and teacher logins were sent,
-   and lists students without Mobile No 1 and teachers without a mobile (they get no login until you fill it in).
+   and lists students without Mobile No and teachers without a mobile (they get no login until you fill it in).
 
-**Passwords are always the mobile number** (parent: Mobile No 1, teacher: mobile in Setup > Teachers). The apps have no way to change
+**Passwords are always the mobile number** (parent: Mobile No, teacher: mobile in Setup > Teachers). The apps have no way to change
 a password. When a mobile number is changed in EduNest, the login is renewed with the new number automatically.
 **Reset a password** (same card) puts one login back to the mobile number; **Fetch all data now** does it for every login.
 
@@ -132,14 +132,14 @@ Test with a laptop and a phone before sharing: log in as one parent and one teac
 ## 6. Give the link to parents and teachers
 | | Login | Password (always) |
 |---|---|---|
-| Parent | Admission No (any child of the family) | Mobile No 1 (10 digits) |
+| Parent | Admission No (any child of the family) | Mobile No (10 digits) |
 | Teacher | EduNest username (e.g. `ravi.kumar`) or the mobile number | Teacher's mobile (Setup > Teachers) |
 
 **Install**: Android Chrome > menu > *Install app* (or the Install card in the app). iPhone Safari > Share > *Add to Home Screen*.
 
 Sample WhatsApp message:
 > Lotus Parent App: https://&lt;github-name&gt;.github.io/school-app/parent/
-> Login: your child's Admission No. Password: Mobile No 1 given in the admission form. Open in Chrome and tap Install.
+> Login: your child's Admission No. Password: Mobile No given in the admission form. Open in Chrome and tap Install.
 
 ## 7. How data goes from EduNest to the apps
 EduNest does the sending by itself; there is nothing to press every day.
@@ -161,7 +161,7 @@ EduNest does the sending by itself; there is nothing to press every day.
 |---|---|
 | Attendance saved in EduNest (also roll call / biometric marks that reach EduNest) | ~10 s (+ up to 15 min phone cache) |
 | Fee receipt, concession, new admission, class change | ~10 s |
-| New student / changed Mobile No 1 | ~10 s (new login is made; old login is closed) |
+| New student / changed Mobile No | ~10 s (new login is made; old login is closed) |
 | Everything again | every morning (full sync) or "Fetch all data now" |
 
 Firestore free limits (50,000 reads, 20,000 writes per day) are far above what one school uses.
@@ -201,7 +201,7 @@ paste > Publish), upload all files, and in EduNest press **Fetch all data now** 
 ## 9. Troubleshooting
 | Problem | Fix |
 |---|---|
-| Parent: "wrong admission number or password" | Child must be studying (not left) and have a 10-digit Mobile No 1. Press **Fetch all data now** (it also puts every password back to the mobile number). |
+| Parent: "wrong admission number or password" | Child must be studying (not left) and have a 10-digit Mobile No. Press **Fetch all data now** (it also puts every password back to the mobile number). |
 | Teacher cannot log in | Teacher needs an active EduNest user, a 10-digit mobile in Setup > Teachers, and at least one class/subject. |
 | Teacher App: "marks list has not come from EduNest yet" | Open EduNest on a PC once (it sends the list), wait a minute, pull down in the app. Check the "exam marks" tick in Cloud Sync. |
 | Teacher App marks: "Missing or insufficient permissions" on Save | The new `firestore.rules` (with the marks part) is not published yet: section 2, step 4. |
