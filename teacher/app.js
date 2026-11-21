@@ -146,8 +146,8 @@ const MAX_MY_NOTICES = 20;
 const NRepo = {
   async board(force) {
     const out = [];
-    try { const b = await getFresh('notices/board', 15 * MIN, force); out.push(...(Array.isArray(b.data?.list) ? b.data.list : [])); } catch { /* none yet */ }
-    try { const p = await getFresh('notices/principal', 10 * MIN, force); out.push(...(Array.isArray(p.data?.list) ? p.data.list : []).map((n) => ({ ...n, prin: true }))); } catch { /* none */ }
+    try { const b = await getFresh('notices/board', 30 * MIN, force); out.push(...(Array.isArray(b.data?.list) ? b.data.list : [])); } catch { /* none yet */ }
+    try { const p = await getFresh('notices/principal', 60 * MIN, force); out.push(...(Array.isArray(p.data?.list) ? p.data.list : []).map((n) => ({ ...n, prin: true }))); } catch { /* none */ }
     return out;
   },
   /// Principal: the school-wide list typed in the app (notices/principal)
@@ -158,7 +158,7 @@ const NRepo = {
     await a.setMerge('notices/principal', { list, upd: Date.now() });
   },
   async sec(secId, force) {
-    try { const s = await getFresh('tnotice/' + secId, 10 * MIN, force); return s.data?.n && typeof s.data.n === 'object' ? s.data.n : {}; } catch { return {}; }
+    try { const s = await getFresh('tnotice/' + secId, 30 * MIN, force); return s.data?.n && typeof s.data.n === 'object' ? s.data.n : {}; } catch { return {}; }
   },
   /// write this teacher's list of one section (rules: a teacher changes only n.<own uid>, only in own sections)
   async saveMine(t, secId, mutate) {
@@ -261,7 +261,19 @@ function showHome() {
   Prefs.remove('ttab');
   const st = { t: null, err: null, loading: true, daysAgo: 0, tab: 'home', notices: null, today: null };
   const main = h('main', { class: 'content' });
-  const bar = topBar({ title: '', actions: [themeBtn(), iconBtn('logout', () => logout(), 'Logout', 'glassy')] });
+  const refBtn = iconBtn('refresh', async () => {
+    refBtn.classList.add('spinning');
+    snackbar('Refreshing data...');
+    try {
+      await load(true);
+      snackbar('App is up to date');
+    } catch {
+      snackbar('Could not update');
+    } finally {
+      refBtn.classList.remove('spinning');
+    }
+  }, 'Refresh', 'glassy');
+  const bar = topBar({ title: '', actions: [refBtn, themeBtn(), iconBtn('logout', () => logout(), 'Logout', 'glassy')] });
   bar.querySelector('.topbar-actions').style.gap = '8px';
   const nav = h('nav', { class: 'navbar', role: 'tablist' });
   const page = h('div', { class: 'page has-nav' }, bar, main, nav);
@@ -589,8 +601,17 @@ function openMarks(t, secId) {
     if (!S.some((x) => x.key === st.subj)) st.subj = S[0]?.key || '';
     setPref('term', st.term); setPref('code', st.code); setPref('subj', st.subj);
   }
+  /// permission-denied usually means the phone still has an OLD login token (the school added this class after the teacher logged in):
+  /// fetch a fresh token (new class list) and try once more, so the teacher does not have to log out and in.
+  const withFreshToken = async (fn) => {
+    try { return await fn(); } catch (e) {
+      if (!String((e && (e.code || e.message)) || e).includes('permission-denied')) throw e;
+      try { await claims(true); } catch { throw e; }
+      return fn();
+    }
+  };
   async function load(force) {
-    try { st.cfg = await Repo.mkcfg(secId, force); st.err = null; } catch (e) { st.err = e; }
+    try { st.cfg = await withFreshToken(() => Repo.mkcfg(secId, force)); st.err = null; } catch (e) { st.err = e; }
     if (st.cfg) fix();
     render();
     if (st.cfg && st.subj) await loadSheet(force);
@@ -598,7 +619,7 @@ function openMarks(t, secId) {
   const path = () => sheetPath(secId, st.cfg.session, st.term, st.code, st.subj);
   async function loadSheet(force) {
     st.loadingSheet = true; st.sheet = null; st.sheetErr = null; renderSheet();
-    try { st.sheet = await Repo.sheet(path(), force); } catch (e) { st.sheetErr = e; }
+    try { st.sheet = await withFreshToken(() => Repo.sheet(path(), force)); } catch (e) { st.sheetErr = e; }
     st.loadingSheet = false; renderSheet();
   }
   async function pick(kind, v) {

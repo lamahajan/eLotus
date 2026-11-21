@@ -230,7 +230,7 @@ export async function getFresh(path, maxAgeMs, force = false) {
   }
   try {
     const s = await a.getServer(path);
-    Prefs.set(key, now);
+    Prefs.set(key, now);   // also for a document that does not exist (yet): re-asking for it would cost a read every time. Pull to refresh asks again.
     return s;
   } catch (e) {
     try { return await a.getCache(path); } catch { throw e; }

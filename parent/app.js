@@ -1,6 +1,6 @@
 // EduNest Parent App (web / PWA), 1.6: dashboard home, Pay Now (UPI), gate pass, notices. Read-saving rules:
-//   student          server at most every 15 min (attendance / fees / gate pass change during the day; pull to refresh: now)
-//   notices          server at most every 15 min (school board notices/board + class notices tnotice/{secId} posted by teachers)
+//   student          server at most every 30 min (attendance / fees / gate pass change during the day; pull to refresh: now)
+//   notices          server at most every 30 min (notices/board), 60 min (class notices tnotice/{secId}), 2 h (notices/principal); pull to refresh: now
 //   today            server at most every 30 min
 //   yesterday        server at most every 6 h
 //   2..7 days ago    phone first, server only if the phone never saw that day
@@ -28,14 +28,21 @@ const Repo = {
     } catch { return CFG.schoolName || ''; }
   },
   async student(adm, force) {
-    const s = await getFresh('students/' + adm, 15 * MIN, force);
+    const s = await getFresh('students/' + adm, 30 * MIN, force);
     return s.data ? toStudent(adm, s.data) : null;
   },
   /// school notices (EduNest) + class notices (teachers) for these sections
   async notices(secIds, force) {
     const out = [];
+    const withFreshToken = async (fn) => {
+      try { return await fn(); } catch (e) {
+        if (!String((e && (e.code || e.message)) || e).includes('permission-denied')) throw e;
+        try { await claims(true); } catch { throw e; }
+        return fn();
+      }
+    };
     try {
-      const b = await getFresh('notices/board', 15 * MIN, force);
+      const b = await withFreshToken(() => getFresh('notices/board', 30 * MIN, force));
       for (const n of (Array.isArray(b.data?.list) ? b.data.list : [])) {
         if (!n || (n.aud !== 'all' && n.aud !== 'p' && n.aud)) continue;
         const secs = Array.isArray(n.secs) ? n.secs.map(String) : [];
@@ -43,12 +50,12 @@ const Repo = {
       }
     } catch { /* no board yet */ }
     try {
-      const p = await getFresh('notices/principal', 15 * MIN, force);
+      const p = await withFreshToken(() => getFresh('notices/principal', 2 * HOUR, force));
       for (const n of (Array.isArray(p.data?.list) ? p.data.list : [])) if (n && (n.aud || 'all') !== 't') out.push({ ...normNotice(n), secs: [], src: 'school' });
     } catch { /* the principal has not posted from the app */ }
     await Promise.all([...new Set(secIds)].filter(Boolean).map(async (sec) => {
       try {
-        const s = await getFresh('tnotice/' + sec, 15 * MIN, force);
+        const s = await withFreshToken(() => getFresh('tnotice/' + sec, 60 * MIN, force));
         for (const [uid, t] of Object.entries(s.data?.n && typeof s.data.n === 'object' ? s.data.n : {})) {
           for (const n of (Array.isArray(t?.list) ? t.list : [])) out.push({ ...normNotice(n), by: String(t.name || ''), uid, secs: [sec], src: 'class' });
         }
@@ -219,7 +226,19 @@ function showHome() {
   Prefs.remove('tab');
   const st = { kids: new Map(), order: [], sel: null, tab: 'home', hw: new Map(), notices: null, err: null, loading: true, attView: 'session' };
   const main = h('main', { class: 'content' });
-  const bar = topBar({ title: '', actions: [themeBtn(), iconBtn('logout', () => logout(), 'Logout', 'glassy')] });
+  const refBtn = iconBtn('refresh', async () => {
+    refBtn.classList.add('spinning');
+    snackbar('Refreshing data...');
+    try {
+      await refresh();
+      snackbar('App is up to date');
+    } catch {
+      snackbar('Could not update');
+    } finally {
+      refBtn.classList.remove('spinning');
+    }
+  }, 'Refresh', 'glassy');
+  const bar = topBar({ title: '', actions: [refBtn, themeBtn(), iconBtn('logout', () => logout(), 'Logout', 'glassy')] });
   bar.querySelector('.topbar-actions').style.gap = '8px';
   const nav = h('nav', { class: 'navbar', role: 'tablist' });
   const page = h('div', { class: 'page has-nav' }, bar, main, nav);

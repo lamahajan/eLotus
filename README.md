@@ -232,3 +232,14 @@ school/  icons/        school logo and home-screen icons
 .nojekyll              needed by GitHub Pages
 ```
 Font: Google Sans Flex (SIL OFL 1.1). Icons: Material Symbols (Apache 2.0).
+- 1.7.2: Teacher App Marks: on permission-denied the app fetches a fresh login token (claims(true)) and retries once (a class added after login no longer needs logout/login).
+
+## Staying inside the FREE Firebase quota (3,500 students + 100 staff)
+Free (Spark) quota per day: 50,000 reads, 20,000 writes, 20,000 deletes (resets at midnight Pacific time, about 1:30 pm IST in winter). Since web apps 1.7.2 / EduNest 1.0.58:
+- **Writes (EduNest -> Firebase)**: only documents whose content changed are written. The "full rewrite" is now every 7 days (`PAPP_FULL_DAYS` in config.env), not daily. Normal day: about 3,500 (attendance) + a few hundred = well under 20,000.
+  **Avoid "Force push now" on the Parent App card** (about 7,000 writes). Use it only when something is really missing.
+- **Reads (phones -> Firebase)**: a phone asks the server for a document at most every: student 30 min, school notices 30 min, class notices 60 min, principal notices 2 h, today's homework 30 min, yesterday 6 h, older days never again.
+  Pull-to-refresh asks again at once. One parent opening the app a few times a day costs about 6 reads per child per visit-after-cache-expiry; 2,800 families x 2 visits x 6 = about 34,000 reads a day.
+- Teacher marks check: 1 read per minute while the school PC is on (about 600 a day).
+- Don't keep the Firebase console Data tab open all day (console reads count too), and don't run "Force push" repeatedly while testing.
+- Watch Firebase > Firestore > Usage. If reads regularly go past about 40,000 a day, tell the parents to pull-to-refresh less, or move to the Blaze plan (the same load costs only a few rupees a day).

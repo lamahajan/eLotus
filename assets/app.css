@@ -2373,3 +2373,137 @@ h1, h2, h3, .wval, .nt, .gp-t, .topbar-title { font-variation-settings: 'ROND' 1
 .ncard, .widget, .card, .idcard, .paycard, .gp-slim {
   contain: paint;
 }
+
+/* 9. Desktop & PC Version (Width >= 960px: Laptops, Desktops, Ultrawide Monitors) */
+@keyframes btn-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.spinning i { animation: btn-spin 0.8s linear infinite; }
+
+@media (min-width: 960px) {
+  :root {
+    --maxw: 1060px;
+  }
+  .content > * {
+    max-width: var(--maxw) !important;
+  }
+  .topbar {
+    max-width: var(--maxw) !important;
+    margin: 0 auto !important;
+    padding: 0 24px !important;
+  }
+  .topbar.scrolled {
+    max-width: var(--maxw) !important;
+  }
+
+  /* Desktop Header Typography */
+  .greet2 {
+    margin: 12px 0 24px 0 !important;
+  }
+  .greet2 h1 {
+    font-size: 32px !important;
+    letter-spacing: -0.025em !important;
+  }
+  .greet2 small {
+    font-size: 13.5px !important;
+    font-weight: 600 !important;
+  }
+
+  /* Desktop 3-Column Executive Dashboard Grid */
+  .wgrid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 20px !important;
+    margin-bottom: 28px !important;
+  }
+  .widget.wide {
+    grid-column: span 1 !important;
+  }
+  .widget {
+    min-height: 156px !important;
+    padding: 22px 24px !important;
+    border-radius: 22px !important;
+    box-shadow: 0 4px 20px -4px rgba(0,0,0,0.06) !important;
+    transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s !important;
+    cursor: pointer;
+  }
+  .widget:hover {
+    transform: translateY(-4px) !important;
+    box-shadow: 0 14px 34px -8px rgba(0,0,0,0.14) !important;
+  }
+  .widget .wval {
+    font-size: 28px !important;
+  }
+
+  /* Desktop School Notices Grid */
+  .nrow {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)) !important;
+    gap: 20px !important;
+    overflow-x: visible !important;
+    padding: 0 !important;
+    margin-bottom: 24px !important;
+  }
+  .nrow.one {
+    grid-template-columns: 1fr !important;
+  }
+  .nrow .ncard {
+    width: 100% !important;
+    flex: 1 1 100% !important;
+    margin: 0 !important;
+    border-radius: 20px !important;
+    min-height: 140px !important;
+    padding: 22px 24px !important;
+  }
+  .nrow .ncard .nt {
+    font-size: 18px !important;
+  }
+  .ndots {
+    display: none !important;
+  }
+
+  /* Desktop Gatepass Card */
+  .gp-slim {
+    max-width: var(--maxw) !important;
+    padding: 16px 24px !important;
+    border-radius: 18px !important;
+    margin-bottom: 24px !important;
+  }
+
+  /* Desktop Floating Dock Navigation */
+  .navbar {
+    max-width: 580px !important;
+    height: 60px !important;
+    border-radius: 30px !important;
+    bottom: 24px !important;
+    box-shadow: 0 18px 45px -8px rgba(0,0,0,0.22) !important;
+  }
+  .nav-item {
+    font-size: 13px !important;
+    gap: 6px !important;
+    padding: 6px 18px !important;
+    border-radius: 22px !important;
+    transition: background 0.15s, transform 0.15s;
+  }
+  .nav-item:hover {
+    background: rgba(128,128,128,0.12);
+  }
+
+  /* Desktop Fees & Student ID Card */
+  .idcard {
+    max-width: 540px !important;
+    margin-left: 0 !important;
+    margin-bottom: 24px !important;
+  }
+  .rc-table {
+    font-size: 14px !important;
+  }
+  .rc-table th, .rc-table td {
+    padding: 14px 20px !important;
+  }
+
+  /* Desktop Teacher Marks Table */
+  .sheet-table {
+    font-size: 14px !important;
+  }
+  .sheet-table th, .sheet-table td {
+    padding: 10px 14px !important;
+  }
+}

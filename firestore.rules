@@ -90,7 +90,7 @@ service cloud.firestore {
     // notices/principal: school-wide notices typed by the Principal in the Teacher App (claim pr == '1', given by EduNest
     // to teachers whose EduNest login role is Principal / Administrator).
     match /notices/{doc} {
-      allow get: if isParent() || isTeacher();
+      allow get: if signedIn();
       allow list, delete: if false;
       allow create, update: if doc == 'principal' && isTeacher() && request.auth.token.pr == '1'
         && request.resource.data.keys().hasOnly(['list', 'upd']) && request.resource.data.list is list && request.resource.data.list.size() <= 30;
