@@ -1,5 +1,5 @@
 // EduNest web apps: shared core (theme, data access, small UI kit). No build step: plain ES modules.
-import * as F from './lib.js';
+import * as F from './lib.js';  // firebase (+ colour utilities, no longer used for the theme)
 import { ICONS } from './icons.js';
 
 export const CFG = window.EDUNEST || {};
@@ -42,42 +42,97 @@ export function icon(name, cls = '') {
 }
 export const clear = (el) => { while (el.firstChild) el.firstChild.remove(); return el; };
 
-// ------------------------------------------------------------------ theme (Material 3 dynamic color from one seed)
-const ROLES = ['primary', 'onPrimary', 'primaryContainer', 'onPrimaryContainer', 'secondary', 'onSecondary', 'secondaryContainer',
-  'onSecondaryContainer', 'tertiary', 'onTertiary', 'tertiaryContainer', 'onTertiaryContainer', 'error', 'onError', 'errorContainer',
-  'onErrorContainer', 'surface', 'onSurface', 'onSurfaceVariant', 'surfaceContainerLowest', 'surfaceContainerLow', 'surfaceContainer',
-  'surfaceContainerHigh', 'surfaceContainerHighest', 'outline', 'outlineVariant', 'inverseSurface', 'inverseOnSurface', 'inversePrimary'];
+// ------------------------------------------------------------------ theme (Cupertino glass, dark by default, light on request)
+// The colour roles keep their Material names (--surface, --primary ...) so every screen follows the same palette.
+const PAL = {
+  dark: {
+    surface: '#000000', onSurface: '#ffffff', onSurfaceVariant: 'rgba(235,235,245,0.66)', surfaceContainerLowest: '#0b0c10',
+    surfaceContainerLow: 'rgba(28,30,40,0.72)', surfaceContainer: 'rgba(34,36,48,0.78)', surfaceContainerHigh: '#22242f', surfaceContainerHighest: '#2c2e3a',
+    primary: '#0A84FF', onPrimary: '#ffffff', primaryContainer: 'rgba(10,132,255,0.18)', onPrimaryContainer: '#64D2FF',
+    secondary: '#5E5CE6', onSecondary: '#ffffff', secondaryContainer: 'rgba(94,92,230,0.2)', onSecondaryContainer: '#c9c8ff',
+    tertiary: '#BF5AF2', onTertiary: '#ffffff', tertiaryContainer: 'rgba(191,90,242,0.18)', onTertiaryContainer: '#e3b5fb',
+    error: '#FF453A', onError: '#ffffff', errorContainer: 'rgba(255,69,58,0.16)', onErrorContainer: '#ff8a82',
+    outline: 'rgba(255,255,255,0.18)', outlineVariant: 'rgba(255,255,255,0.08)', inverseSurface: '#f2f2f7', inverseOnSurface: '#1c1c1e', inversePrimary: '#0040dd',
+    ok: '#30D158', okContainer: 'rgba(48,209,88,0.16)', onOkContainer: '#5ee27f', warn: '#FF9F0A', warnContainer: 'rgba(255,159,10,0.16)', onWarnContainer: '#ffb946',
+    glass: 'rgba(22,24,34,0.78)', card: 'rgba(26,28,38,0.72)', cardSolid: '#161822', cardSubtle: 'rgba(255,255,255,0.05)', spec: 'rgba(255,255,255,0.16)',
+    shadow: '0 8px 24px -4px rgba(0,0,0,0.45)', orb: '0.35', bar: '#000000',
+  },
+  light: {
+    surface: '#F2F2F7', onSurface: '#1C1C1E', onSurfaceVariant: 'rgba(60,60,67,0.72)', surfaceContainerLowest: '#ffffff',
+    surfaceContainerLow: 'rgba(255,255,255,0.86)', surfaceContainer: 'rgba(255,255,255,0.9)', surfaceContainerHigh: '#ffffff', surfaceContainerHighest: '#e9e9ef',
+    primary: '#007AFF', onPrimary: '#ffffff', primaryContainer: 'rgba(0,122,255,0.12)', onPrimaryContainer: '#0058c4',
+    secondary: '#5856D6', onSecondary: '#ffffff', secondaryContainer: 'rgba(88,86,214,0.13)', onSecondaryContainer: '#3d3bb0',
+    tertiary: '#AF52DE', onTertiary: '#ffffff', tertiaryContainer: 'rgba(175,82,222,0.13)', onTertiaryContainer: '#8a2fba',
+    error: '#FF3B30', onError: '#ffffff', errorContainer: 'rgba(255,59,48,0.12)', onErrorContainer: '#c4251c',
+    outline: 'rgba(0,0,0,0.14)', outlineVariant: 'rgba(0,0,0,0.07)', inverseSurface: '#1c1c1e', inverseOnSurface: '#f2f2f7', inversePrimary: '#64D2FF',
+    ok: '#1f9e45', okContainer: 'rgba(52,199,89,0.14)', onOkContainer: '#1a7f37', warn: '#c76e00', warnContainer: 'rgba(255,149,0,0.14)', onWarnContainer: '#a35a00',
+    glass: 'rgba(255,255,255,0.84)', card: 'rgba(255,255,255,0.86)', cardSolid: '#ffffff', cardSubtle: 'rgba(0,0,0,0.035)', spec: 'rgba(0,0,0,0.1)',
+    shadow: '0 10px 30px -6px rgba(0,0,0,0.1)', orb: '0.16', bar: '#F2F2F7',
+  },
+};
 const kebab = (s) => s.replace(/[A-Z]/g, (m) => '-' + m.toLowerCase());
-let themeSurface = { light: '#fff8f9', dark: '#181215' };
+export const theme = () => document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
 
+/// Material 3 (light) colour scheme made from the school colour (config.js themeColor), like Google's own apps (dynamic colour).
 export function applyTheme(hex) {
-  let seed;
-  try { seed = F.argbFromHex(hex || '#59164C'); } catch { seed = F.argbFromHex('#59164C'); }
-  const css = [];
-  for (const dark of [false, true]) {
-    const s = new F.SchemeTonalSpot(F.Hct.fromInt(seed), dark, 0);
-    const v = ROLES.map((r) => `--${kebab(r)}:${F.hexFromArgb(F.MaterialDynamicColors[r].getArgb(s))}`);
-    // status colours (present / leave), harmonised with the school colour
-    const pal = (c) => F.TonalPalette.fromInt(F.Blend.harmonize(F.argbFromHex(c), seed));
-    const g = pal('#1e8e3e'), w = pal('#e37400');
-    const t = (p, l, d) => F.hexFromArgb(p.tone(dark ? d : l));
-    v.push(`--ok:${t(g, 40, 80)}`, `--ok-container:${t(g, 90, 30)}`, `--on-ok-container:${t(g, 10, 90)}`,
-      `--warn:${t(w, 50, 80)}`, `--warn-container:${t(w, 90, 30)}`, `--on-warn-container:${t(w, 10, 90)}`);
-    const surf = F.hexFromArgb(F.MaterialDynamicColors.surface.getArgb(s));
-    themeSurface[dark ? 'dark' : 'light'] = surf;
-    css.push(dark ? `@media (prefers-color-scheme: dark){:root{${v.join(';')}}}` : `:root{${v.join(';')}}`);
-  }
+  const brand = /^#[0-9a-f]{6}$/i.test(hex || '') ? hex : '#59164C';
+  let v = PAL.light;
+  try {
+    const seed = F.argbFromHex(brand), sc = new F.SchemeTonalSpot(F.Hct.fromInt(seed), false, 0.0);
+    const c = (r) => F.hexFromArgb(F.MaterialDynamicColors[r].getArgb(sc));
+    const pal = (x) => F.TonalPalette.fromHueAndChroma(F.Hct.fromInt(F.argbFromHex(x)).hue, 36);   // calm green / amber, Google-like (no neon)
+    const g = pal('#1e8e3e'), w = pal('#e37400'), t = (p, n) => F.hexFromArgb(p.tone(n));
+    const roles = ['primary', 'onPrimary', 'primaryContainer', 'onPrimaryContainer', 'secondary', 'onSecondary', 'secondaryContainer', 'onSecondaryContainer',
+      'tertiary', 'onTertiary', 'tertiaryContainer', 'onTertiaryContainer', 'error', 'onError', 'errorContainer', 'onErrorContainer', 'surface', 'onSurface',
+      'onSurfaceVariant', 'surfaceContainerLowest', 'surfaceContainerLow', 'surfaceContainer', 'surfaceContainerHigh', 'surfaceContainerHighest', 'outline',
+      'outlineVariant', 'inverseSurface', 'inverseOnSurface', 'inversePrimary'];
+    v = { ...PAL.light, ...Object.fromEntries(roles.map((r) => [r, c(r)])),
+      ok: t(g, 40), okContainer: t(g, 92), onOkContainer: t(g, 20), warn: t(w, 45), warnContainer: t(w, 92), onWarnContainer: t(w, 25),
+      glass: c('surfaceContainer'), card: c('surfaceContainerLowest'), cardSolid: c('surfaceContainerLowest'), cardSubtle: c('surfaceContainerHigh'),
+      spec: c('outlineVariant'), bar: c('surface'), primary30: F.hexFromArgb(F.TonalPalette.fromInt(seed).tone(30)), tertiary30: F.hexFromArgb(sc.tertiaryPalette.tone(30)),
+      secondary30: F.hexFromArgb(sc.secondaryPalette.tone(30)), primary50: F.hexFromArgb(F.TonalPalette.fromInt(seed).tone(50)) };
+  } catch (e) { /* colour library missing: the fixed light palette is used */ }
+  PAL.m3 = v;
+  const css = `:root{${Object.entries(v).map(([r, x]) => `--${kebab(r)}:${x}`).join(';')};--brand:${brand};color-scheme:light}`;
   let st = document.getElementById('m3-theme');
-  if (!st) { st = h('style', { id: 'm3-theme' }); document.head.append(st); }
-  st.textContent = css.join('\n');
-  syncThemeColor();
-  matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', syncThemeColor);
+  if (!st) { st = document.createElement('style'); st.id = 'm3-theme'; document.head.append(st); }
+  st.textContent = css;
+  setTheme('light', false);                      // light only (school's choice)
 }
-function syncThemeColor() {
-  const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+export function setTheme(t, save = true) {
+  document.documentElement.dataset.theme = t === 'light' ? 'light' : 'dark';
+  if (save) Prefs.set('theme', t);
   let m = document.querySelector('meta[name=theme-color]');
-  if (!m) { m = h('meta', { name: 'theme-color' }); document.head.append(m); }
-  m.content = themeSurface[dark ? 'dark' : 'light'];
+  if (!m) { m = document.createElement('meta'); m.name = 'theme-color'; document.head.append(m); }
+  m.content = (PAL.m3 || PAL.light).bar;
+  document.querySelectorAll('.theme-btn').forEach((b) => b.replaceChildren(icon(theme() === 'dark' ? 'light_mode' : 'dark_mode')));
+}
+/// Sun / moon button for the top bar.
+export function themeBtn() { return null; }     // no dark mode any more: nothing to switch
+
+/// The school's UPI link (part_qr short_url) with the amount the app shows put into am= (added when the link has none).
+export function upiLink(base, amount) {
+  let u = String(base || '').trim();
+  if (!/^upi:\/\/pay\?/i.test(u)) return '';
+  const amt = (Math.round((Number(amount) || 0) * 100) / 100).toFixed(2);
+  if (/([?&])am=[^&]*/i.test(u)) u = u.replace(/([?&])am=[^&]*/i, `$1am=${amt}`);
+  else u += `&am=${amt}`;
+  if (!/[?&]cu=/i.test(u)) u += '&cu=INR';
+  return u;
+}
+export const upiParam = (u, k) => { try { return new URLSearchParams(String(u).split('?')[1] || '').get(k) || ''; } catch { return ''; } };
+export const isPhone = () => /android|iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+export function greeting() {
+  const hr = Number(new Intl.DateTimeFormat('en-IN', { hour: 'numeric', hour12: false, timeZone: 'Asia/Kolkata' }).format(new Date()));
+  return hr < 12 ? 'Good Morning' : hr < 17 ? 'Good Afternoon' : 'Good Evening';
+}
+export const todayLong = () => new Intl.DateTimeFormat('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' }).format(new Date());
+/// 13:45 -> 01:45 PM
+export function time12(t) {
+  const m = /^(\d{1,2}):(\d{2})/.exec(String(t || ''));
+  if (!m) return String(t || '');
+  const hh = +m[1];
+  return `${String(hh % 12 || 12).padStart(2, '0')}:${m[2]} ${hh < 12 ? 'AM' : 'PM'}`;
 }
 
 // ------------------------------------------------------------------ small key-value store on the phone
@@ -216,7 +271,7 @@ export async function claims(refresh) {
     if (!c) throw e;
   }
   const list = (k) => Array.isArray(c[k]) ? c[k].map(String) : [];
-  return { role: String(c.r || ''), children: list('a'), sections: list('s'), mustChange: String(c.np || '') === '1' };
+  return { role: String(c.r || ''), children: list('a'), sections: list('s'), principal: String(c.pr || '') === '1', mustChange: String(c.np || '') === '1' };
 }
 export async function needsNewPassword() {
   const u = (await api()).user();
@@ -382,12 +437,27 @@ export function watchScroll(main, bar) {
 export function pullToRefresh(scroller, onRefresh) {
   const ind = h('div', { class: 'ptr' }, h('div', { class: 'ptr-disc' }, icon('refresh')));
   scroller.parentElement.append(ind);
-  let y0 = null, dy = 0, busy = false;
+  let x0 = null, y0 = null, dy = 0, busy = false, isHorizontal = false;
   const MAX = 130, TRIG = 80;
-  scroller.addEventListener('touchstart', (e) => { if (scroller.scrollTop <= 0 && !busy) { y0 = e.touches[0].clientY; dy = 0; } }, { passive: true });
+  scroller.addEventListener('touchstart', (e) => {
+    if (scroller.scrollTop <= 0 && !busy && e.touches.length === 1) {
+      x0 = e.touches[0].clientX;
+      y0 = e.touches[0].clientY;
+      dy = 0;
+      isHorizontal = false;
+    }
+  }, { passive: true });
   scroller.addEventListener('touchmove', (e) => {
-    if (y0 == null) return;
-    dy = e.touches[0].clientY - y0;
+    if (y0 == null || busy || isHorizontal) return;
+    const touch = e.touches[0];
+    const dx = Math.abs(touch.clientX - x0);
+    dy = touch.clientY - y0;
+    if (dx > Math.abs(dy) && dx > 8) {
+      isHorizontal = true;
+      ind.style.transform = '';
+      ind.classList.remove('pulling');
+      return;
+    }
     if (dy <= 0 || scroller.scrollTop > 0) { ind.style.transform = ''; ind.classList.remove('pulling'); return; }
     const d = Math.min(MAX, dy * 0.55);
     ind.classList.add('pulling');
@@ -397,7 +467,9 @@ export function pullToRefresh(scroller, onRefresh) {
   }, { passive: true });
   const end = async () => {
     if (y0 == null) return;
-    y0 = null;
+    const wasHorizontal = isHorizontal;
+    x0 = null; y0 = null; isHorizontal = false;
+    if (wasHorizontal) return;
     const d = Math.min(MAX, dy * 0.55);
     ind.classList.remove('pulling');
     if (d < TRIG) { ind.style.transform = ''; return; }
@@ -412,7 +484,7 @@ export function pullToRefresh(scroller, onRefresh) {
   };
   const cancel = () => {
     if (busy) return;
-    y0 = null;
+    x0 = null; y0 = null; isHorizontal = false;
     ind.classList.remove('pulling');
     ind.style.transform = '';
   };

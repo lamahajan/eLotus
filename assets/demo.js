@@ -32,7 +32,10 @@ function seed() {
       fee: { due: 8400, months: 2, period: 'Oct - Nov 2026', paid: 33600, asOn: istDay(0), rc: [
         { no: '2026/0918', date: istDay(52), amt: 8400, mode: 'UPI' }, { no: '2026/0611', date: istDay(110), amt: 12600, mode: 'Cash' },
         { no: '2026/0204', date: istDay(170), amt: 12600, mode: 'Cheque' }] },
-      att: { s: { P: 118, A: 6, L: 3 }, m: { P: a1.P > 15 ? 15 : a1.P, A: 1, L: 1 }, mon, d: a1.d }, upd: Date.now() - 3 * 3600e3,
+      att: { s: { P: 118, A: 6, L: 3 }, m: { P: a1.P > 15 ? 15 : a1.P, A: 1, L: 1 }, mon, d: { ...a1.d, [istDay(0)]: 'P' } }, upd: Date.now() - 3 * 3600e3,
+      gp: [{ id: 'GP-0412', date: istDay(0), time: '13:23', by: 'Rakesh Sharma', rel: 'Father', reason: 'Doctor\'s appointment', out: '13:45', outBy: 'eGateSys', st: 'out' },
+        { id: 'GP-0377', date: istDay(9), time: '11:10', by: 'Neha Sharma', rel: 'Mother', reason: 'Family function', out: '11:22', outBy: 'Reception', st: 'out' }],
+      pay: { upi: 'upi://pay?ver=01&mode=19&pa=lotusinternationalsc.70509801@hdfcbank&pn=LOTUSINTERNATIONALSCHOOL&tr=STQTzwwA1Gsrx9lHM&am=0&cu=INR&mc=8220', qr: '' },
     },
     'students/1025': {
       name: 'Diya Sharma', cls: '2ND', sec: 'B', secId: '2ND-B', roll: '7', dob: '2019-02-03', father: 'Rakesh Sharma', mother: 'Neha Sharma',
@@ -40,6 +43,11 @@ function seed() {
       fee: { due: 0, months: 0, period: '', paid: 29400, asOn: istDay(0), rc: [{ no: '2026/0919', date: istDay(52), amt: 9800, mode: 'UPI' }] },
       att: { s: { P: 124, A: 3, L: 0 }, m: { P: 14, A: 1, L: 0 }, mon, d: a2.d }, upd: Date.now() - 3 * 3600e3,
     },
+    'notices/board': { list: [
+      { id: 'N1', t: 'Annual Sports Day & Winter Carnival', b: 'Track and field events on Saturday from 9 am. Parent entry passes are available at the security desk.', aud: 'all', secs: [], date: istDay(1), exp: '', pin: true, by: 'Principal' },
+      { id: 'N2', t: 'Parent-Teacher Meeting', b: 'PTM for classes 1st to 5th on Saturday, 10 am to 1 pm.', aud: 'p', secs: ['5TH-A', '2ND-B'], date: istDay(3), exp: '', pin: false, by: 'Office' },
+      { id: 'N3', t: 'Staff meeting', b: 'All teachers: staff room at 2:45 pm today.', aud: 't', secs: [], date: istDay(0), exp: '', pin: false, by: 'Principal' }] },
+    'tnotice/5TH-A': { secId: '5TH-A', upd: Date.now(), n: { tdemo: { name: 'Ravi Kumar', list: [{ id: 'nd1', t: 'Maths test on Friday', b: 'Chapter 4 and 5. Bring a geometry box.', date: istDay(0), exp: '', ts: Date.now() }] } } },
     'teachers/tdemo': {
       name: 'Ravi Kumar', ct: '5TH-A', secs: { '5TH-A': ['maths'], '5TH-B': ['maths'], '6TH-A': ['maths', 'science'] },
       subj: { maths: 'Mathematics', science: 'Science' }, ctSubj: { english: 'English', hindi: 'Hindi', evs: 'EVS', maths: 'Mathematics' },
@@ -77,7 +85,7 @@ function seed() {
 
 export function demoApi() {
   let docs = load('docs', null);
-  if (!docs || docs['meta/app']?.v !== istDay(0) || !docs['mkcfg/5TH-A']) { docs = seed(); docs['meta/app'].v = istDay(0); save('docs', docs); }
+  if (!docs || docs['meta/app']?.v !== istDay(0) || !docs['mkcfg/5TH-A'] || !docs['notices/board']) { docs = seed(); docs['meta/app'].v = istDay(0); save('docs', docs); }
   const cache = new Set(load('cache', []));
   let user = load('user', null);
   const subs = new Set();
@@ -85,7 +93,7 @@ export function demoApi() {
   const persist = () => { save('docs', docs); save('cache', [...cache]); };
   const out = (path) => ({ exists: !!docs[path], data: docs[path] ? structuredClone(docs[path]) : null });
   const claimsOf = (u) => u?.uid === 'fdemo' ? { r: 'p', a: ['1024', '1025'], s: ['5TH-A', '2ND-B'] }
-    : u?.uid === 'tdemo' ? { r: 't', s: ['5TH-A', '5TH-B', '6TH-A'] } : {};
+    : u?.uid === 'tdemo' ? { r: 't', s: ['5TH-A', '5TH-B', '6TH-A'], pr: '1' } : {};
   return {
     onAuth: (cb) => { subs.add(cb); setTimeout(() => cb(user), 0); return () => subs.delete(cb); },
     user: () => user,
@@ -109,7 +117,7 @@ export function demoApi() {
     setMerge: async (path, data) => {
       await wait(350);
       const cur = docs[path] || {};
-      docs[path] = { ...cur, ...data, subjects: { ...(cur.subjects || {}), ...(data.subjects || {}) } };
+      docs[path] = { ...cur, ...data, subjects: { ...(cur.subjects || {}), ...(data.subjects || {}) }, ...(data.n || cur.n ? { n: { ...(cur.n || {}), ...(data.n || {}) } } : {}), ...(data.list ? { list: data.list } : {}) };
       cache.add(path); persist();
     },
     saveCells: async (path, head, cells, by) => {

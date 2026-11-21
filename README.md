@@ -4,8 +4,24 @@ Two web apps for the school, connected to **EduNest** through Firebase:
 
 | App | Who uses it | What it shows / does |
 |---|---|---|
-| **Parent App** (`/parent/`) | Parents | Child's profile, fee dues + last receipts, attendance (session, month, last 30 days), homework |
-| **Teacher App** (`/teacher/`) | Teachers | Post homework, and **enter exam marks** (they go into EduNest Mark Entry) for their own sections and subjects |
+| **Parent App** (`/parent/`) | Parents | Dashboard (today's gate pass, attendance, fee due, homework, notices, student card), fees with **Pay Now (UPI)**, attendance, homework, notices |
+| **Teacher App** (`/teacher/`) | Teachers | Post homework, **enter exam marks** (they go into EduNest Mark Entry), **post notices to their own classes** |
+
+### New in web apps 1.6 / EduNest 1.0.53
+- **Publish the new `firestore.rules` once** (Firebase > Firestore Database > Rules > paste > Publish). Without it notices do not show.
+- **Gate pass**: who picked the child up and at what time (and when the child left through the gate) shows on the parent's dashboard within seconds.
+- **Pay Now**: under the fee due. It uses the student's UPI link from the online-fee Firebase (`part_qr/<admission no>`), with the amount the app shows
+  put into `am=`. Setting: Cloud Sync > Parent App > *Pay links* (empty = the Online fee Firebase).
+- **Notices**: the school posts in EduNest (Cloud Sync > Parent App > Notices & announcements: everyone / parents / teachers, all or some classes).
+  Teachers post from the Teacher App (Notices > Post); a teacher's notice goes **only** to the classes they tick, and only classes they teach.
+- **School announcements by the Principal**: two ways.
+  1. In EduNest (computer): Setup > School Setup > Cloud Sync > Parent App card > *Notices & announcements* (Administrator login).
+  2. From the phone: put the Principal in **Setup > Teachers** with a 10-digit mobile and their EduNest login (role Principal or Administrator).
+     In the Teacher App, *Post a notice* then shows **Whole school**. Teachers only get their own classes.
+- Today's notices show as cards at the top of the dashboard; the Notices tile opens all of them.
+- **Teachers** can log in with their username **or** their mobile number. A teacher without an EduNest login user now also gets the app (login = mobile).
+- **Force push all data now** (top of Cloud Sync) sends everything again at once.
+- Dark look by default; the sun / moon button switches to light.
 
 These web apps are now the **only** apps. The old Flutter apps (ParentApp / TeacherApp, APK files) are no longer used
 and do not need to be built or installed. Parents and teachers open a link in Chrome and tap **Install**; the app gets its
@@ -117,7 +133,7 @@ Test with a laptop and a phone before sharing: log in as one parent and one teac
 | | Login | Password (always) |
 |---|---|---|
 | Parent | Admission No (any child of the family) | Mobile No 1 (10 digits) |
-| Teacher | EduNest username (e.g. `ravi.kumar`) | Teacher's mobile (Setup > Teachers) |
+| Teacher | EduNest username (e.g. `ravi.kumar`) or the mobile number | Teacher's mobile (Setup > Teachers) |
 
 **Install**: Android Chrome > menu > *Install app* (or the Install card in the app). iPhone Safari > Share > *Add to Home Screen*.
 

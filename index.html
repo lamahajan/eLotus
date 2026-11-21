@@ -8,23 +8,23 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>EduNest Apps</title>
-<meta name="theme-color" content="#fff8f9">
+<meta name="theme-color" content="#F2F2F7">
 <link rel="icon" href="school/logo-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/parent-180.png">
 <link rel="preload" href="assets/fonts/gsf.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/app.css">
 <script src="config.js"></script>
 <script type="module">
-  import { CFG, h, icon, applyTheme, registerSW, demoBanner, brandMark, brandWordmark } from './assets/core.js';
+  import { CFG, h, icon, applyTheme, registerSW, demoBanner, brandMark, brandWordmark, themeBtn } from './assets/core.js';
   applyTheme(CFG.themeColor);
   registerSW();
   const choice = (href, cls, ic, title, sub) => h('a', { class: 'choice ' + cls, href },
     h('div', { class: 'ci' }, icon(ic)), h('div', null, h('b', null, title), h('span', null, sub)), icon('arrow_forward'));
-  document.getElementById('app').replaceChildren(h('div', { class: 'page' }, h('div', { class: 'content' }, h('div', { class: 'chooser' },
+  document.getElementById('app').replaceChildren(h('div', { class: 'page' }, h('div', { class: 'chooser-top' }, themeBtn()), h('div', { class: 'content' }, h('div', { class: 'chooser' },
     brandWordmark() || h('div', null, brandMark('school-fill'), h('h1', null, CFG.schoolName || 'EduNest')),
     h('p', null, 'Choose your app'),
-    choice('parent/', 'a', 'family_restroom', 'Parent App', 'Fees, attendance and homework'),
-    choice('teacher/', 'b', 'co_present', 'Teacher App', 'Post homework for your classes'),
+    choice('parent/', 'a', 'family_restroom', 'Parent App', 'Dashboard, fees, attendance, homework, notices'),
+    choice('teacher/', 'b', 'co_present', 'Teacher App', 'Homework, exam marks and class notices'),
     demoBanner()))));
   if (CFG.schoolName) document.title = CFG.schoolName;
 </script>

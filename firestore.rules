@@ -1,6 +1,6 @@
 rules_version = '2';
 
-// EduNest Parent App + Teacher App - Firestore security rules (with Teacher App exam marks, EduNest 1.0.52).
+// EduNest Parent App + Teacher App - Firestore security rules (exam marks, notices, class notices: EduNest 1.0.53, web apps 1.6).
 // Paste this whole file in Firebase console > Firestore Database > Rules, then press Publish.
 //
 // Who is who (the claims are put on every login by the school's EduNest server):
@@ -84,6 +84,35 @@ service cloud.firestore {
       allow get: if isTeacher() && parts(id).size() == 5 && parts(id)[0] in request.auth.token.s;
       allow list, delete: if false;
       allow create, update: if isTeacher() && sheetOk(id) && parts(id)[0] in request.auth.token.s && mayWrite(parts(id)[0], parts(id)[4]);
+    }
+
+    // Notices from the school (EduNest > Cloud Sync > Parent App > Notices): one document, written by EduNest only.
+    // notices/principal: school-wide notices typed by the Principal in the Teacher App (claim pr == '1', given by EduNest
+    // to teachers whose EduNest login role is Principal / Administrator).
+    match /notices/{doc} {
+      allow get: if isParent() || isTeacher();
+      allow list, delete: if false;
+      allow create, update: if doc == 'principal' && isTeacher() && request.auth.token.pr == '1'
+        && request.resource.data.keys().hasOnly(['list', 'upd']) && request.resource.data.list is list && request.resource.data.list.size() <= 30;
+    }
+
+    // Class notices posted by teachers: one document per section, n.<teacher uid> = {name, list:[...]}.
+    // Parents of that section and its teachers read it; a teacher changes only their own entry, only in their own sections.
+    match /tnotice/{secId} {
+      function mineOk() {
+        let n = request.resource.data.n;
+        return !(request.auth.uid in n) || (n[request.auth.uid] is map && n[request.auth.uid].keys().hasOnly(['name', 'list'])
+          && n[request.auth.uid].list is list && n[request.auth.uid].list.size() <= 20);
+      }
+      function shape() {
+        return request.resource.data.keys().hasOnly(['secId', 'upd', 'n']) && request.resource.data.secId == secId && request.resource.data.n is map;
+      }
+      allow get: if (isParent() || isTeacher()) && secId in request.auth.token.s;
+      allow list, delete: if false;
+      allow create: if isTeacher() && secId in request.auth.token.s && shape() && mineOk()
+        && request.resource.data.n.keys().hasOnly([request.auth.uid]);
+      allow update: if isTeacher() && secId in request.auth.token.s && shape() && mineOk()
+        && request.resource.data.n.diff(resource.data.n).affectedKeys().hasOnly([request.auth.uid]);
     }
 
     // everything else: closed

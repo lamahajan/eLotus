@@ -6,7 +6,7 @@
 import {
   CFG, DOMAIN, sheetPath, h, icon, clear, applyTheme, registerSW, api, getFresh, claims, loginErrorText, errorText,
   Prefs, istDay, niceDate, shortDate, weekDay, dayMon, btn, iconBtn, setBusy, field, snackbar, dialog, sheet, pushPage, dropAllLayers, topBar,
-  watchScroll, pullToRefresh, messageBox, skeleton, avatarLetter, hueClass, demoBanner, installCard, offlineChip, spinner, ripple, brandMark, brandDot,
+  watchScroll, pullToRefresh, messageBox, skeleton, avatarLetter, hueClass, demoBanner, installCard, offlineChip, spinner, ripple, brandMark, brandDot, siteUrl, themeBtn, greeting, todayLong,
 } from '../assets/core.js';
 
 const HOUR = 3600e3, MIN = 60e3;
@@ -113,7 +113,7 @@ async function logout(silent) {
 function showLogin() {
   const err = h('div', { class: 'login-err', role: 'alert', hidden: true });
   const showErr = (m) => { err.hidden = !m; clear(err).append(icon('error'), h('span', null, m || '')); };
-  const fU = field({ label: 'Username', lead: 'person', helper: 'e.g. ravi.kumar', autocomplete: 'username', name: 'username', onenter: () => fP.input.focus() });
+  const fU = field({ label: 'Username or mobile number', lead: 'person', helper: 'e.g. ravi.kumar, or your 10-digit mobile', autocomplete: 'username', name: 'username', onenter: () => fP.input.focus() });
   const fP = field({ label: 'Password', type: 'password', lead: 'lock', helper: 'Password: your mobile number (10 digits)', autocomplete: 'current-password', name: 'password', onenter: () => go() });
   fU.input.value = Prefs.get('lastUser') || '';
   const go = async () => {
@@ -126,93 +126,309 @@ function showLogin() {
       let idx;
       try { idx = await a.getServer('tLogin/' + user); } catch { throw new Error('No internet connection. Please try again.'); }
       const uid = idx.data?.t;
-      if (!idx.exists || !uid) throw new Error('This username was not found. Your login and mobile number must be set in EduNest. Please contact the office.');
+      if (!idx.exists || !uid) throw new Error('This username / mobile number was not found. Your mobile number must be saved in EduNest (Setup > Teachers). Please contact the office.');
       Prefs.set('lastUser', user);
       try { await a.signIn(`${uid}@${DOMAIN}`, pw); } catch (e) { throw new Error(loginErrorText(e.code, 't')); }
     } catch (e) { showErr(e.message); setBusy(b, false); }
   };
   const b = btn('filled', 'Login', go, { class: 'btn-big btn-block' });
   if (loginMsg) { showErr(loginMsg); loginMsg = null; }
-  mount(h('div', { class: 'page' }, h('div', { class: 'login' },
+  mount(h('div', { class: 'page' }, h('div', { class: 'chooser-top' }, themeBtn()), h('div', { class: 'login' },
     h('div', { class: 'login-hero' }, brandMark('co_present'), h('h1', null, CFG.schoolName || 'Teacher Login'),
       h('div', { class: 'login-kicker' }, 'Teacher App'), h('p', null, 'Your EduNest username and password')),
     h('form', { class: 'login-form', onsubmit: (e) => { e.preventDefault(); go(); } }, err, fU, fP, b),
-    h('div', { class: 'login-tip' }, 'Homework you post here shows up in the Parent App right away.'),
+    h('div', { class: 'login-tip' }, 'Homework and notices you post here show up in the Parent App of your classes right away.'),
     demoBanner(), installCard())));
 }
 
-// ------------------------------------------------------------------ home: pick a day and a section
+// ------------------------------------------------------------------ notices
+const MAX_MY_NOTICES = 20;
+const NRepo = {
+  async board(force) {
+    const out = [];
+    try { const b = await getFresh('notices/board', 15 * MIN, force); out.push(...(Array.isArray(b.data?.list) ? b.data.list : [])); } catch { /* none yet */ }
+    try { const p = await getFresh('notices/principal', 10 * MIN, force); out.push(...(Array.isArray(p.data?.list) ? p.data.list : []).map((n) => ({ ...n, prin: true }))); } catch { /* none */ }
+    return out;
+  },
+  /// Principal: the school-wide list typed in the app (notices/principal)
+  async savePrincipal(mutate) {
+    const cur = await a.getServer('notices/principal').catch(() => ({ data: null }));
+    const today = istDay(0);
+    const list = mutate((Array.isArray(cur.data?.list) ? cur.data.list : []).filter((x) => !x.exp || x.exp >= today)).slice(0, 30);
+    await a.setMerge('notices/principal', { list, upd: Date.now() });
+  },
+  async sec(secId, force) {
+    try { const s = await getFresh('tnotice/' + secId, 10 * MIN, force); return s.data?.n && typeof s.data.n === 'object' ? s.data.n : {}; } catch { return {}; }
+  },
+  /// write this teacher's list of one section (rules: a teacher changes only n.<own uid>, only in own sections)
+  async saveMine(t, secId, mutate) {
+    const uid = a.user()?.uid;
+    const cur = await a.getServer('tnotice/' + secId).catch(() => ({ data: null }));
+    const mine = Array.isArray(cur.data?.n?.[uid]?.list) ? cur.data.n[uid].list : [];
+    const today = istDay(0);
+    const list = mutate(mine.filter((x) => !x.exp || x.exp >= today)).slice(0, MAX_MY_NOTICES);
+    await a.setMerge('tnotice/' + secId, { secId, upd: Date.now(), n: { [uid]: { name: t.name, list } } });
+  },
+};
+async function loadNotices(t, force) {
+  const today = istDay(0), out = [];
+  for (const n of await NRepo.board(force)) {
+    if (!n || (n.aud && n.aud !== 'all' && n.aud !== 't')) continue;
+    const secs = Array.isArray(n.secs) ? n.secs.map(String) : [];
+    if (secs.length && !secs.some((x) => t.sections.includes(x))) continue;
+    out.push({ ...n, secs, src: 'school', mine: !!(n.prin && n.uid === a.user()?.uid), prin: !!n.prin });
+  }
+  const uid = a.user()?.uid;
+  await Promise.all(t.sections.map(async (sec) => {
+    for (const [u, v] of Object.entries(await NRepo.sec(sec, force))) {
+      for (const n of (Array.isArray(v?.list) ? v.list : [])) out.push({ ...n, secs: [sec], src: 'class', by: String(v.name || ''), mine: u === uid });
+    }
+  }));
+  // one notice posted to several sections shows once
+  const merged = new Map();
+  for (const n of out.filter((x) => (x.t || x.b) && (!x.exp || x.exp >= today))) {
+    const k = n.src + (n.src === 'class' ? n.id + (n.by || '') : n.id);
+    if (merged.has(k)) merged.get(k).secs.push(...n.secs); else merged.set(k, { ...n, secs: [...n.secs] });
+  }
+  return [...merged.values()].sort((x, y) => (!!y.pin - !!x.pin) || String(y.date).localeCompare(String(x.date)) || ((y.ts || 0) - (x.ts || 0)));
+}
+function tNoticeWallet(n) {
+  const kind = n.pin ? 'pin' : n.src === 'class' ? 'cls' : 'sch';
+  return h('div', { class: 'ncard ' + kind },
+    h('div', { class: 'holo' }),
+    h('div', { class: 'top' }, n.src === 'class' ? 'Class ' + n.secs.map(sectionText).join(', ') : 'School announcement', h('span', null, n.pin ? 'Pinned' : niceDate(n.date))),
+    h('div', { class: 'nt' }, n.t || 'Notice'), n.b ? h('div', { class: 'nb' }, n.b) : null,
+    h('div', { class: 'bot' }, h('span', null, n.mine ? 'Posted by you' : n.by ? 'From ' + n.by : ''), n.exp ? h('span', null, 'Until ' + shortDate(n.exp)) : null));
+}
+function tNoticeCard(n, onDelete) {
+  return h('div', { class: 'notice' + (n.pin ? ' pin' : '') },
+    h('div', { class: 'nk' }, n.pin ? h('span', { class: 'src pinned' }, 'Pinned') : null,
+      h('span', { class: 'src' + (n.src === 'class' ? ' cls' : '') }, n.src === 'class' ? 'Class ' + n.secs.map(sectionText).join(', ') : 'School'),
+      n.date ? niceDate(n.date) : null),
+    h('h3', null, n.t || 'Notice'), n.b ? h('p', null, n.b) : null,
+    h('div', { class: 'nf' }, h('span', null, n.mine ? 'Posted by you' : n.by ? 'From ' + n.by : ''),
+      h('span', { style: { display: 'flex', alignItems: 'center', gap: '8px' } }, n.exp ? 'Until ' + shortDate(n.exp) : null,
+        n.mine && onDelete ? iconBtn('delete', () => onDelete(n), 'Delete notice') : null)));
+}
+/// New notice: goes ONLY to the sections ticked here (and only sections this teacher teaches; the Firestore rules check it too).
+function postSheet(t, done) {
+  const SCHOOL = '*school*';
+  const picked = new Set(t.principal ? [SCHOOL] : t.ct ? [t.ct] : t.sections.slice(0, 1));
+  const err = h('div', { class: 'login-err', role: 'alert', hidden: true });
+  const showErr = (m) => { err.hidden = !m; clear(err).append(icon('error'), h('span', null, m || '')); };
+  const fT = field({ label: 'Title', maxlength: 140, autocapitalize: 'sentences' });
+  const fB = field({ label: 'Message', multiline: true, rows: 4, maxlength: 2000, helper: 'Only the parents of the classes you tick will see it' });
+  const fE = field({ label: 'Show until (optional)', type: 'date' });
+  fE.input.min = istDay(0);
+  const secRow = h('div', { class: 'post-secs' });
+  const drawSecs = () => {
+    clear(secRow);
+    if (t.principal) secRow.append(ripple(h('button', { class: 'chip', type: 'button', 'aria-pressed': String(picked.has(SCHOOL)),
+      onclick: () => { if (picked.has(SCHOOL)) picked.delete(SCHOOL); else { picked.clear(); picked.add(SCHOOL); } drawSecs(); } },
+    picked.has(SCHOOL) ? icon('check') : null, h('span', null, 'Whole school (all parents and teachers)'))));
+    if (picked.has(SCHOOL)) return;
+    t.sections.forEach((sec) => secRow.append(ripple(h('button', { class: 'chip', type: 'button', 'aria-pressed': String(picked.has(sec)),
+      onclick: () => { if (picked.has(sec)) picked.delete(sec); else picked.add(sec); drawSecs(); } },
+    picked.has(sec) ? icon('check') : null, h('span', null, sectionText(sec) + (sec === t.ct ? ' (my class)' : ''))))));
+  };
+  drawSecs();
+  const bPost = btn('filled', 'Post notice', async () => {
+    const title = fT.input.value.trim(), body = fB.input.value.trim(), exp = fE.input.value;
+    if (!title) return showErr('Write a title');
+    if (!picked.size) return showErr('Tick at least one class');
+    showErr(null); setBusy(bPost, true);
+    const n = { id: 'n' + Date.now().toString(36), t: title, b: body, date: istDay(0), exp: exp || '', ts: Date.now() };
+    try {
+      if (picked.has(SCHOOL)) await NRepo.savePrincipal((list) => [{ ...n, aud: 'all', by: t.name, uid: a.user()?.uid }, ...list]);
+      else for (const sec of picked) await NRepo.saveMine(t, sec, (list) => [n, ...list]);
+      done('posted');
+    } catch (e) { showErr(errorText(e)); setBusy(bPost, false); }
+  }, { icon: 'send', class: 'btn-big' });
+  setTimeout(() => fT.input.focus(), 320);
+  return h('div', null,
+    h('h3', null, 'Post a notice'), h('div', { class: 'sub' }, t.principal ? 'Whole school, or only the classes you tick.' : 'Parents of the ticked classes see it on their app home screen.'),
+    h('div', { class: 'section-label', style: { width: '100%', margin: '6px 0' } }, 'Send to'), secRow,
+    fT, fB, fE, err, h('div', { class: 'sheet-actions' }, h('span', { class: 'grow' }), bPost));
+}
+
+// ------------------------------------------------------------------ home: Dashboard, Homework, Marks, Notices
+const TTABS = [
+  { id: 'home', label: 'Dashboard', icon: 'space_dashboard' },
+  { id: 'hw', label: 'Homework', icon: 'menu_book' },
+  { id: 'marks', label: 'Marks', icon: 'edit_note' },
+];
 function showHome() {
-  const st = { t: null, err: null, loading: true, daysAgo: 0, counts: new Map(), mode: Prefs.get('mode') === 'marks' ? 'marks' : 'hw' };
+  const saved = Prefs.get('ttab');
+  const st = { t: null, err: null, loading: true, daysAgo: 0, tab: TTABS.some((x) => x.id === saved) ? saved : 'home', notices: null, today: null };
   const main = h('main', { class: 'content' });
-  const bar = topBar({ title: h('span', { class: 'brand-title' }, brandDot(), h('span', null, 'Teacher App', CFG.schoolName ? h('small', null, CFG.schoolName) : null)), actions: [iconBtn('logout', () => logout(), 'Logout')] });
-  const page = h('div', { class: 'page' }, bar, main);
+  const bar = topBar({ title: '', actions: [themeBtn(), iconBtn('logout', () => logout(), 'Logout', 'glassy')] });
+  bar.querySelector('.topbar-actions').style.gap = '8px';
+  const nav = h('nav', { class: 'navbar', role: 'tablist' });
+  const page = h('div', { class: 'page has-nav' }, bar, main, nav);
   watchScroll(main, bar);
   pullToRefresh(main, () => load(true));
   mount(page);
+  const go = (id) => { st.tab = id; Prefs.set('ttab', id); render(true); };
 
   async function load(force) {
     st.err = null;
     try {
       if (force) await claims(true);   // new sections from the school come with a fresh login token
       st.t = await Repo.me(force);
+      if (st.t) st.t.principal = (await claims(false)).principal;
     } catch (e) { st.err = e; }
     st.loading = false;
     render();
+    if (st.t) {
+      loadNotices(st.t, force).then((n) => { st.notices = n; if (st.tab !== 'hw' && st.tab !== 'marks') render(); });
+      Promise.all(st.t.sections.map((sec) => Repo.day(sec, istDay(0), force).then((d) => [sec, d]).catch(() => [sec, null])))
+        .then((r) => { st.today = new Map(r); if (st.tab === 'home') render(); });
+    }
   }
-
   const dayLabel = (i) => i === 0 ? 'Today' : i === 1 ? 'Yesterday' : weekDay(istDay(i));
 
-  function render() {
+  function renderBar() {
+    const title = bar.querySelector('.topbar-title');
+    clear(title);
+    const t = st.t;
+    title.append(h('div', { class: 'app-head' },
+      h('div', { class: 'school-id' }, schoolBadge(), h('div', { class: 'school-txt' }, h('b', null, CFG.schoolName || 'School'), h('span', null, 'Teacher Portal'))),
+      t ? h('div', { class: 'kid-switch', style: { cursor: 'default' } }, avatarLetter(t.name, 'sm'),
+        h('span', { class: 't' }, h('span', { class: 'n' }, t.name.split(/\s+/)[0]), h('span', { class: 'c' }, t.ct ? 'Class ' + t.ct : `${t.sections.length} classes`))) : null));
+  }
+  function renderNav() {
+    clear(nav);
+    nav.hidden = !st.t;
+    for (const x of TTABS) {
+      const on = x.id === st.tab;
+      nav.append(h('button', { class: 'nav-item', role: 'tab', type: 'button', 'aria-selected': String(on), onclick: () => { if (!on) go(x.id); } },
+        h('span', { class: 'nav-pill' }, icon(on ? x.icon + '-fill' : x.icon)), x.label));
+    }
+  }
+  const secItem = (t, sec, onclick, extra) => {
+    const ct = sec === t.ct, subs = t.allowed(sec).map(t.nameOf).join(', ');
+    return ripple(h('button', { class: 'li tap', type: 'button', onclick },
+      h('div', { class: 'sec-lead' + (ct ? ' ct' : '') }, sectionShort(sec), ct ? h('span', { class: 'star' }, icon('star-fill')) : null),
+      h('div', { class: 'li-body' }, h('div', { class: 'li-title' }, sectionText(sec)),
+        h('div', { class: 'li-sub' }, [ct ? 'Class teacher' : '', subs, extra].filter(Boolean).join('  ·  '))),
+      h('div', { class: 'li-trail' }, icon('chevron_right'))));
+  };
+
+  function render(toTop) {
+    renderBar(); renderNav();
     const t = st.t;
     clear(main);
+    if (toTop) main.scrollTop = 0;
     let body;
     if (st.loading) body = skeleton(4);
     else if (!t) body = messageBox(st.err ? 'wifi_off' : 'person_off', st.err ? errorText(st.err) : 'Your record has not arrived from the school yet. Pull down to check again in a while.', () => { st.loading = true; render(); load(true); });
-    else if (!t.sections.length) body = messageBox('groups', 'No section or subject is assigned to you. Ask the office to set your subjects or class in EduNest (Setup > Teachers).');
-    else {
-      const date = istDay(st.daysAgo);
-      const hour = Number(new Intl.DateTimeFormat('en-IN', { hour: 'numeric', hour12: false, timeZone: 'Asia/Kolkata' }).format(new Date()));
-      const hello = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-      const modeBtn = (m, ic, label) => ripple(h('button', { class: 'chip', type: 'button', 'aria-pressed': String(st.mode === m),
-        onclick: () => { st.mode = m; Prefs.set('mode', m); render(); } }, icon(ic), h('span', null, label)));
-      const modes = h('div', { class: 'chips', role: 'group', style: { marginTop: '14px' } }, modeBtn('hw', 'menu_book', 'Homework'), modeBtn('marks', 'edit_note', 'Exam marks'));
-      if (st.mode === 'marks') {
-        const secs = t.sections.filter((sec) => t.allowed(sec).length);
-        body = h('div', null,
-          h('div', { class: 'greet' }, h('p', null, hello + ','), h('h2', null, t.name || 'Teacher')), modes,
-          h('div', { class: 'section-label' }, 'Enter marks for'),
-          secs.length ? h('div', { class: 'list' }, secs.map((sec) => {
-            const ct = sec === t.ct, subs = t.allowed(sec).map(t.nameOf).join(', ');
-            return ripple(h('button', { class: 'li tap', type: 'button', onclick: () => openMarks(t, sec) },
-              h('div', { class: 'sec-lead' + (ct ? ' ct' : '') }, sectionShort(sec), ct ? h('span', { class: 'star' }, icon('star-fill')) : null),
-              h('div', { class: 'li-body' }, h('div', { class: 'li-title' }, sectionText(sec)), h('div', { class: 'li-sub' }, subs)),
-              h('div', { class: 'li-trail' }, icon('chevron_right'))));
-          })) : messageBox('groups', 'No subject is assigned to you.'));
-        main.append(h('div', { class: 'fade-in' }, demoBanner(), body));
-        return;
-      }
-      body = h('div', null,
-        h('div', { class: 'greet' }, h('p', null, hello + ','), h('h2', null, t.name || 'Teacher')), modes,
-        h('div', { class: 'section-label', style: { marginTop: '6px' } }, 'Homework date'),
-        h('div', { class: 'chips daychips', role: 'group' }, Array.from({ length: EDIT_DAYS_BACK + 1 }, (_, i) => ripple(h('button', {
-          class: 'chip', type: 'button', 'aria-pressed': String(st.daysAgo === i), onclick: () => { st.daysAgo = i; render(); },
-        }, h('span', null, dayLabel(i)), h('small', null, dayMon(istDay(i))))))),
-        h('div', { class: 'section-label' }, niceDate(date)),
-        h('div', { class: 'list' }, t.sections.map((sec) => {
-          const ct = sec === t.ct, subs = t.allowed(sec).map(t.nameOf).join(', ');
-          return ripple(h('button', { class: 'li tap', type: 'button', onclick: () => openSection(t, sec, date, render) },
-            h('div', { class: 'sec-lead' + (ct ? ' ct' : '') }, sectionShort(sec), ct ? h('span', { class: 'star' }, icon('star-fill')) : null),
-            h('div', { class: 'li-body' }, h('div', { class: 'li-title' }, sectionText(sec)),
-              h('div', { class: 'li-sub' }, [ct ? 'Class teacher' : '', subs].filter(Boolean).join('  ·  '))),
-            h('div', { class: 'li-trail' }, icon('chevron_right'))));
-        })));
-    }
+    else if (!t.sections.length && !t.principal) body = messageBox('groups', 'No section or subject is assigned to you. Ask the office to set your subjects or class in EduNest (Setup > Teachers).');
+    else if (st.tab === 'hw') body = hwTab(t);
+    else if (st.tab === 'marks') body = marksTab(t);
+    else body = homeTab(t);
     main.append(h('div', { class: 'fade-in' }, demoBanner(), body));
+  }
+
+  function homeTab(t) {
+    const posted = st.today ? t.sections.reduce((n, sec) => n + t.allowed(sec).filter((k) => st.today.get(sec)?.items.some((x) => x.key === k)).length, 0) : null;
+    const total = t.sections.reduce((n, sec) => n + t.allowed(sec).length, 0);
+    const ns = st.notices || [];
+    const widget = (onclick, cic, ic, badge, badgeCls, lbl, val, sub, small) => ripple(h('button', { class: 'widget', type: 'button', onclick },
+      h('div', { class: 'wtop' }, h('div', { class: 'wicon ' + cic }, icon(ic)), h('span', { class: 'wbadge ' + badgeCls }, badge)),
+      h('div', null, h('div', { class: 'wlbl' }, lbl), h('div', { class: 'wval' + (small ? ' sm' : '') }, val), h('div', { class: 'wsub' }, sub))));
+    return h('div', null,
+      h('div', { class: 'greet2' }, h('div', null, h('small', null, todayLong()), h('h1', null, `${greeting()}, ${t.name.split(/\s+/)[0] || 'Teacher'}`))),
+      (() => {
+        const rank = (n) => (n.pin ? 0 : n.date === istDay(0) ? 1 : 2);
+        const sort = (L) => [...L].sort((x, y) => rank(x) - rank(y) || String(y.date).localeCompare(String(x.date)));
+        const row = (L) => {
+          if (!L.length) return null;
+          const dots = L.length > 1 ? h('div', { class: 'ndots' }, L.map((_, i) => h('i', { class: i ? '' : 'on', 'aria-label': `Go to notice ${i + 1}` }))) : null;
+          const strip = h('div', { class: 'nrow' + (L.length > 1 ? '' : ' one') }, L.map(tNoticeWallet));
+          if (dots) {
+            strip.addEventListener('scroll', () => {
+              const cardW = strip.firstChild ? strip.firstChild.offsetWidth : 0;
+              if (!cardW) return;
+              const i = Math.round(strip.scrollLeft / (cardW + 12));
+              [...dots.children].forEach((d, j) => d.classList.toggle('on', j === i));
+            }, { passive: true });
+            [...dots.children].forEach((d, idx) => {
+              d.addEventListener('click', () => {
+                const cardW = strip.firstChild ? strip.firstChild.offsetWidth : 0;
+                if (cardW) strip.scrollTo({ left: idx * (cardW + 12), behavior: 'smooth' });
+              });
+            });
+          }
+          return h('div', null, strip, dots);
+        };
+        const school = row(sort(ns.filter((n) => n.src !== 'class'))), cls = row(sort(ns.filter((n) => n.src === 'class')));
+        return school || cls ? h('div', null, h('div', { class: 'section-label' }, 'Notices'), school, cls) : null; })(),
+      h('div', { class: 'wgrid' },
+        widget(() => go('hw'), 'c-blue', 'menu_book', posted === null ? '' : `${posted}/${total}`, posted !== null && posted >= total ? 't-green' : 't-blue', 'Homework today',
+          posted === null ? '…' : posted >= total ? 'All posted' : `${total - posted} to post`, 'Tap to post homework', true),
+        widget(() => go('marks'), 'c-indigo', 'edit_note', '', '', 'Exam marks', `${t.sections.filter((sec) => t.allowed(sec).length).length} classes`, 'Enter marks for EduNest', true),
+        widget(() => noticesPage(t), 'c-purple', 'campaign', ns.length ? `${ns.length}` : '', 't-purple', 'Notices', ns.length ? ns[0].t || 'Notice' : 'No notices', 'Tap to see all', true),
+        widget(() => sheet((done) => postSheet(t, done)).then((r) => { if (r) { snackbar('Notice posted'); load(true); } }),
+          'c-green', 'send', 'New', 't-green', 'Post a notice', 'To my classes', 'Parents see it at once', true)),
+
+      h('div', { class: 'section-label' }, 'My classes'),
+      h('div', { class: 'list' }, t.sections.map((sec) => {
+        const d = st.today?.get(sec), mine = t.allowed(sec), n = d ? mine.filter((k) => d.items.some((x) => x.key === k)).length : null;
+        return secItem(t, sec, () => openSection(t, sec, istDay(0)), n === null ? '' : `homework ${n}/${mine.length}`);
+      })));
+  }
+  function hwTab(t) {
+    const date = istDay(st.daysAgo);
+    return h('div', null,
+      h('div', { class: 'greet2' }, h('div', null, h('small', null, 'Post for your classes'), h('h1', null, 'Homework'))),
+      h('div', { class: 'section-label', style: { marginTop: '0' } }, 'Homework date'),
+      h('div', { class: 'chips daychips', role: 'group', style: { width: 'calc(100% - 32px)', margin: '0 auto' } }, Array.from({ length: EDIT_DAYS_BACK + 1 }, (_, i) => ripple(h('button', {
+        class: 'chip', type: 'button', 'aria-pressed': String(st.daysAgo === i), onclick: () => { st.daysAgo = i; render(); },
+      }, h('span', null, dayLabel(i)), h('small', null, dayMon(istDay(i))))))),
+      h('div', { class: 'section-label' }, niceDate(date)),
+      h('div', { class: 'list' }, t.sections.map((sec) => secItem(t, sec, () => openSection(t, sec, date)))));
+  }
+  function marksTab(t) {
+    const secs = t.sections.filter((sec) => t.allowed(sec).length);
+    return h('div', null,
+      h('div', { class: 'greet2' }, h('div', null, h('small', null, 'Goes into EduNest Mark Entry'), h('h1', null, 'Exam marks'))),
+      h('div', { class: 'section-label', style: { marginTop: '0' } }, 'Enter marks for'),
+      secs.length ? h('div', { class: 'list' }, secs.map((sec) => secItem(t, sec, () => openMarks(t, sec)))) : messageBox('groups', 'No subject is assigned to you.'));
+  }
+  function noticesPage(t) {
+    const box = h('div', { style: { paddingTop: '8px' } });
+    pushPage('Notices', box);
+    const draw = () => { clear(box).append(noticesTab(t)); };
+    draw();
+    const again = () => loadNotices(t, true).then((n) => { st.notices = n; draw(); render(); });
+    box.addEventListener('notice-changed', again);
+  }
+  function noticesTab(t) {
+    const del = async (n) => {
+      const ok = await dialog({ icon: 'delete', title: 'Delete notice?', text: `"${n.t}" will be removed from the Parent App${n.prin ? ' of the whole school' : ' of ' + n.secs.map(sectionText).join(', ')}.`,
+        actions: [{ label: 'Cancel', value: false }, { label: 'Delete', value: true, kind: 'filled' }] });
+      if (!ok) return;
+      try { if (n.prin) await NRepo.savePrincipal((list) => list.filter((x) => x.id !== n.id)); else for (const sec of n.secs) await NRepo.saveMine(t, sec, (list) => list.filter((x) => x.id !== n.id)); snackbar('Notice deleted'); document.querySelector('.page.pushed .content > div')?.dispatchEvent(new Event('notice-changed')); } catch (e) { snackbar(errorText(e)); }
+    };
+    const ns = st.notices;
+    return h('div', null,
+      h('div', { class: 'greet2' }, h('div', null, h('small', null, 'School and class notices')),
+        btn('filled', 'Post', () => sheet((done) => postSheet(t, done)).then((r) => { if (r) { snackbar('Notice posted'); document.querySelector('.page.pushed .content > div')?.dispatchEvent(new Event('notice-changed')); } }), { icon: 'add' })),
+      ns === null ? skeleton(3) : ns.length ? ns.map((n) => tNoticeCard(n, del))
+        : messageBox('campaign', 'No notices yet. Tap Post to send a notice to the parents of your classes.'));
   }
 
   render();
   load(false);
+}
+function schoolBadge() {
+  const box = h('div', { class: 'school-badge' });
+  if (CFG.logo) {
+    const img = h('img', { src: siteUrl(CFG.logo), alt: '' });
+    img.addEventListener('error', () => img.replaceWith((CFG.schoolName || 'S').trim()[0]));
+    box.append(img);
+  } else box.append((CFG.schoolName || 'S').trim()[0]);
+  return box;
 }
 
 // ------------------------------------------------------------------ one section, one day
@@ -447,7 +663,7 @@ function openMarks(t, secId) {
       };
       input.addEventListener('input', check);
       input.addEventListener('focus', () => {
-        setTimeout(() => input.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 250);
+        setTimeout(() => input.scrollIntoView({ block: 'center', behavior: 'smooth' }), 250);
       });
       input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
@@ -455,8 +671,8 @@ function openMarks(t, secId) {
           const i = st.rows.indexOf(r);
           const next = st.rows[i + 1]?.input || input;
           next.focus();
-          next.select();
-          setTimeout(() => next.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 100);
+          try { next.select(); } catch {}
+          setTimeout(() => next.scrollIntoView({ block: 'center', behavior: 'smooth' }), 100);
         }
       });
       ab.addEventListener('click', () => { input.value = mkParse(input.value, mx) === 'AB' ? '' : 'AB'; check(); });
