@@ -216,8 +216,8 @@ const TABS = [
 ];
 
 function showHome() {
-  const savedTab = Prefs.get('tab');
-  const st = { kids: new Map(), order: [], sel: null, tab: TABS.some((t) => t.id === savedTab) ? savedTab : 'home', hw: new Map(), notices: null, err: null, loading: true, attView: 'session' };
+  Prefs.remove('tab');
+  const st = { kids: new Map(), order: [], sel: null, tab: 'home', hw: new Map(), notices: null, err: null, loading: true, attView: 'session' };
   const main = h('main', { class: 'content' });
   const bar = topBar({ title: '', actions: [themeBtn(), iconBtn('logout', () => logout(), 'Logout', 'glassy')] });
   bar.querySelector('.topbar-actions').style.gap = '8px';
@@ -228,7 +228,7 @@ function showHome() {
   mount(page);
 
   const kid = () => (st.sel ? st.kids.get(st.sel) : null);
-  const go = (t) => { st.tab = t; Prefs.set('tab', t); render(true); };
+  const go = (t) => { st.tab = t; render(true); };
   const kidIndex = (adm) => Math.max(0, st.order.indexOf(adm));
 
   async function load(force) {

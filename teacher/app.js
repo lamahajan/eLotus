@@ -258,8 +258,8 @@ const TTABS = [
   { id: 'marks', label: 'Marks', icon: 'edit_note' },
 ];
 function showHome() {
-  const saved = Prefs.get('ttab');
-  const st = { t: null, err: null, loading: true, daysAgo: 0, tab: TTABS.some((x) => x.id === saved) ? saved : 'home', notices: null, today: null };
+  Prefs.remove('ttab');
+  const st = { t: null, err: null, loading: true, daysAgo: 0, tab: 'home', notices: null, today: null };
   const main = h('main', { class: 'content' });
   const bar = topBar({ title: '', actions: [themeBtn(), iconBtn('logout', () => logout(), 'Logout', 'glassy')] });
   bar.querySelector('.topbar-actions').style.gap = '8px';
@@ -268,7 +268,7 @@ function showHome() {
   watchScroll(main, bar);
   pullToRefresh(main, () => load(true));
   mount(page);
-  const go = (id) => { st.tab = id; Prefs.set('ttab', id); render(true); };
+  const go = (id) => { st.tab = id; render(true); };
 
   async function load(force) {
     st.err = null;
