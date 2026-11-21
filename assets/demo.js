@@ -59,12 +59,25 @@ function seed() {
   hw('2ND-B', 0, { english: it('English', 'Write A to Z in cursive, two times.', 'Pooja Arora'), maths: it('Mathematics', 'Count and write 51 to 100.', 'Pooja Arora') });
   hw('2ND-B', 2, { evs: it('EVS', 'Draw your family tree.', 'Pooja Arora') });
   hw('6TH-A', 0, { science: it('Science', 'Read chapter 4: Separation of substances.', 'Ravi Kumar') });
+  // exam marks: setup of 5TH-A (EduNest writes it) and one sheet already filled in
+  const st5 = [['1024', 'Aarav Sharma', '12'], ['1031', 'Ishita Verma', '3'], ['1036', 'Kabir Singh', '7'], ['1040', 'Meher Kaur', '9'], ['1047', 'Rohan Mehta', '15'], ['1052', 'Sara Khan', '18']];
+  const sub5 = { english: { n: 'English', mx: { PT: 20, HY: 80 } }, maths: { n: 'Mathematics', mx: { PT: 20, HY: 80 } }, science: { n: 'Science', mx: { PT: 20, HY: 80 } },
+    evs: { n: 'EVS', mx: { PT: 20, HY: 80 } }, hindi: { n: 'Hindi', mx: { PT: 20, HY: 80 } } };
+  const mkcfg = (sec, list) => ({ secId: sec, session: '2026-2027', terms: [{ id: 'T1', n: 'Term 1', c: ['PT', 'HY'] }, { id: 'T2', n: 'Term 2', c: ['PT', 'AN'] }],
+    as: { PT: 'Periodic Test', HY: 'Half Yearly Exam', AN: 'Annual Exam' }, keys: { '5TH': { ...sub5, maths: { n: 'Mathematics', mx: { PT: 20, HY: 80, AN: 80 } } } },
+    st: list.map(([a, n, r]) => ({ a, n, r, k: '5TH' })) });
+  docs['mkcfg/5TH-A'] = mkcfg('5TH-A', st5);
+  docs['mkcfg/5TH-B'] = mkcfg('5TH-B', [['1060', 'Anaya Gupta', '1'], ['1061', 'Dev Malhotra', '2'], ['1063', 'Nikhil Rana', '4']]);
+  docs['mkcfg/6TH-A'] = { ...mkcfg('6TH-A', [['1070', 'Tanvi Bedi', '1'], ['1072', 'Yash Arora', '3']]), keys: { '6TH': sub5 } };
+  docs['mkcfg/6TH-A'].st.forEach((x) => { x.k = '6TH'; });
+  docs['marks/5TH-A~2026-2027~T1~PT~maths'] = { secId: '5TH-A', session: '2026-2027', term: 'T1', code: 'PT', subj: 'maths', by: 'Ravi Kumar', src: 't', upd: Date.now() - 86400e3,
+    m: { 1024: 18, 1031: 17.5, 1036: 'AB', 1040: 20, 1047: 14 } };
   return docs;
 }
 
 export function demoApi() {
   let docs = load('docs', null);
-  if (!docs || docs['meta/app']?.v !== istDay(0)) { docs = seed(); docs['meta/app'].v = istDay(0); save('docs', docs); }
+  if (!docs || docs['meta/app']?.v !== istDay(0) || !docs['mkcfg/5TH-A']) { docs = seed(); docs['meta/app'].v = istDay(0); save('docs', docs); }
   const cache = new Set(load('cache', []));
   let user = load('user', null);
   const subs = new Set();
@@ -97,6 +110,14 @@ export function demoApi() {
       await wait(350);
       const cur = docs[path] || {};
       docs[path] = { ...cur, ...data, subjects: { ...(cur.subjects || {}), ...(data.subjects || {}) } };
+      cache.add(path); persist();
+    },
+    saveCells: async (path, head, cells, by) => {
+      await wait(350);
+      const cur = docs[path] || { m: {} };
+      const m = { ...(cur.m || {}) };
+      for (const [k, v] of Object.entries(cells)) { if (v === null) delete m[k]; else m[k] = v; }
+      docs[path] = { ...cur, ...head, by, src: 't', upd: Date.now(), m };
       cache.add(path); persist();
     },
     removeField: async (path, field, extra) => {

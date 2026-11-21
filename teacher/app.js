@@ -1,8 +1,10 @@
-// EduNest Teacher App (web / PWA). Same data and rules as the old Flutter app:
-// one document per read; a save touches only this teacher's subject inside the section's day document (merge),
+// EduNest Teacher App (web / PWA).
+// Homework: one document per read; a save touches only this teacher's subject inside the section's day document (merge),
 // so two teachers saving at the same time never overwrite each other.
+// Marks (EduNest 1.0.52): mkcfg/{secId} (students, subjects, max marks: written by EduNest) + one sheet per section / term / assessment / subject
+// (marks/{secId}~{session}~{term}~{code}~{subject}); a save writes only the changed cells; EduNest takes them into Mark Entry within a minute.
 import {
-  CFG, DOMAIN, h, icon, clear, applyTheme, registerSW, api, getFresh, claims, needsNewPassword, changePassword, loginErrorText, errorText,
+  CFG, DOMAIN, sheetPath, h, icon, clear, applyTheme, registerSW, api, getFresh, claims, loginErrorText, errorText,
   Prefs, istDay, niceDate, shortDate, weekDay, dayMon, btn, iconBtn, setBusy, field, snackbar, dialog, sheet, pushPage, dropAllLayers, topBar,
   watchScroll, pullToRefresh, messageBox, skeleton, avatarLetter, hueClass, demoBanner, installCard, offlineChip, spinner, ripple, brandMark, brandDot,
 } from '../assets/core.js';
@@ -69,6 +71,14 @@ const Repo = {
   remove({ secId, date, key }) {
     return a.removeField(`homework/${secId}_${date}`, `subjects.${key}`, { upd: Date.now() });
   },
+  async mkcfg(secId, force) {
+    const s = await getFresh('mkcfg/' + secId, 30 * MIN, force);
+    return s.data || null;
+  },
+  async sheet(path, force) {
+    const s = await getFresh(path, 2 * MIN, force);
+    return s.data && s.data.m && typeof s.data.m === 'object' ? s.data : { m: {} };
+  },
 };
 
 /// "5TH-A" -> "5TH - A"
@@ -86,9 +96,7 @@ a.onAuth(async (u) => {
     const c = await claims(false);
     if (v !== gate) return;
     if (c.role !== 't') { loginMsg = 'This is not a teacher login.'; await a.signOut(); return; }
-    const np = await needsNewPassword().catch(() => false);
-    if (v !== gate) return;
-    np ? showNewPassword() : showHome();
+    showHome();   // the password is always the mobile number (school rule): no new-password screen
   } catch { if (v === gate) showHome(); }
 });
 function mount(el) { clear(root).append(el); }
@@ -106,7 +114,7 @@ function showLogin() {
   const err = h('div', { class: 'login-err', role: 'alert', hidden: true });
   const showErr = (m) => { err.hidden = !m; clear(err).append(icon('error'), h('span', null, m || '')); };
   const fU = field({ label: 'Username', lead: 'person', helper: 'e.g. ravi.kumar', autocomplete: 'username', name: 'username', onenter: () => fP.input.focus() });
-  const fP = field({ label: 'Password', type: 'password', lead: 'lock', helper: 'First time: your mobile number (10 digits)', autocomplete: 'current-password', name: 'password', onenter: () => go() });
+  const fP = field({ label: 'Password', type: 'password', lead: 'lock', helper: 'Password: your mobile number (10 digits)', autocomplete: 'current-password', name: 'password', onenter: () => go() });
   fU.input.value = Prefs.get('lastUser') || '';
   const go = async () => {
     const user = fU.input.value.trim().toLowerCase(), pw = fP.input.value;
@@ -133,44 +141,9 @@ function showLogin() {
     demoBanner(), installCard())));
 }
 
-// ------------------------------------------------------------------ first login: choose a password
-function showNewPassword() {
-  let askCurrent = false;
-  const err = h('div', { class: 'login-err', role: 'alert', hidden: true });
-  const showErr = (m) => { err.hidden = !m; clear(err).append(icon('error'), h('span', null, m || '')); };
-  const fCur = field({ label: 'Current password (mobile number)', type: 'password', autocomplete: 'current-password' });
-  const fA = field({ label: 'New password', type: 'password', autocomplete: 'new-password' });
-  const fB = field({ label: 'Confirm new password', type: 'password', autocomplete: 'new-password', onenter: () => save() });
-  fCur.hidden = true;
-  const save = async () => {
-    const p1 = fA.input.value, p2 = fB.input.value;
-    if (p1 !== p2) return showErr('The two passwords do not match');
-    if (p1.length < 6) return showErr('Password must be at least 6 characters');
-    if (/^\d{10}$/.test(p1)) return showErr('Do not use a mobile number as your password, choose something else');
-    showErr(null);
-    setBusy(b, true);
-    try {
-      await changePassword(p1, askCurrent ? fCur.input.value : null);
-      snackbar('New password saved');
-      showHome();
-    } catch (e) {
-      if (e.code === 'RECENT_LOGIN') { askCurrent = true; fCur.hidden = false; showErr('For security, also enter your current password (mobile number)'); }
-      else showErr(e.message);
-    } finally { setBusy(b, false); }
-  };
-  const b = btn('filled', 'Save', save, { class: 'btn-big btn-block', icon: 'check' });
-  const main = h('main', { class: 'content' }, h('div', { class: 'wrap', style: { padding: '8px 20px' } },
-    h('div', { class: 'empty-icon', style: { margin: '8px 0 20px', background: 'var(--primary-container)', color: 'var(--on-primary-container)' } }, icon('key')),
-    h('p', { style: { color: 'var(--on-surface-variant)', margin: '0 0 24px' } }, 'Your password is currently your mobile number. Choose a new password; you will use it to log in from now on.'),
-    err, fCur, fA, fB, b));
-  const bar = topBar({ title: 'Create a new password', actions: [btn('text', 'Logout', () => logout(true))] });
-  watchScroll(main, bar);
-  mount(h('div', { class: 'page' }, bar, main));
-}
-
 // ------------------------------------------------------------------ home: pick a day and a section
 function showHome() {
-  const st = { t: null, err: null, loading: true, daysAgo: 0, counts: new Map() };
+  const st = { t: null, err: null, loading: true, daysAgo: 0, counts: new Map(), mode: Prefs.get('mode') === 'marks' ? 'marks' : 'hw' };
   const main = h('main', { class: 'content' });
   const bar = topBar({ title: h('span', { class: 'brand-title' }, brandDot(), h('span', null, 'Teacher App', CFG.schoolName ? h('small', null, CFG.schoolName) : null)), actions: [iconBtn('logout', () => logout(), 'Logout')] });
   const page = h('div', { class: 'page' }, bar, main);
@@ -201,9 +174,27 @@ function showHome() {
       const date = istDay(st.daysAgo);
       const hour = Number(new Intl.DateTimeFormat('en-IN', { hour: 'numeric', hour12: false, timeZone: 'Asia/Kolkata' }).format(new Date()));
       const hello = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+      const modeBtn = (m, ic, label) => ripple(h('button', { class: 'chip', type: 'button', 'aria-pressed': String(st.mode === m),
+        onclick: () => { st.mode = m; Prefs.set('mode', m); render(); } }, icon(ic), h('span', null, label)));
+      const modes = h('div', { class: 'chips', role: 'group', style: { marginTop: '14px' } }, modeBtn('hw', 'menu_book', 'Homework'), modeBtn('marks', 'edit_note', 'Exam marks'));
+      if (st.mode === 'marks') {
+        const secs = t.sections.filter((sec) => t.allowed(sec).length);
+        body = h('div', null,
+          h('div', { class: 'greet' }, h('p', null, hello + ','), h('h2', null, t.name || 'Teacher')), modes,
+          h('div', { class: 'section-label' }, 'Enter marks for'),
+          secs.length ? h('div', { class: 'list' }, secs.map((sec) => {
+            const ct = sec === t.ct, subs = t.allowed(sec).map(t.nameOf).join(', ');
+            return ripple(h('button', { class: 'li tap', type: 'button', onclick: () => openMarks(t, sec) },
+              h('div', { class: 'sec-lead' + (ct ? ' ct' : '') }, sectionShort(sec), ct ? h('span', { class: 'star' }, icon('star-fill')) : null),
+              h('div', { class: 'li-body' }, h('div', { class: 'li-title' }, sectionText(sec)), h('div', { class: 'li-sub' }, subs)),
+              h('div', { class: 'li-trail' }, icon('chevron_right'))));
+          })) : messageBox('groups', 'No subject is assigned to you.'));
+        main.append(h('div', { class: 'fade-in' }, demoBanner(), body));
+        return;
+      }
       body = h('div', null,
-        h('div', { class: 'greet' }, h('p', null, hello + ','), h('h2', null, t.name || 'Teacher')),
-        h('div', { class: 'section-label', style: { marginTop: '18px' } }, 'Homework date'),
+        h('div', { class: 'greet' }, h('p', null, hello + ','), h('h2', null, t.name || 'Teacher')), modes,
+        h('div', { class: 'section-label', style: { marginTop: '6px' } }, 'Homework date'),
         h('div', { class: 'chips daychips', role: 'group' }, Array.from({ length: EDIT_DAYS_BACK + 1 }, (_, i) => ripple(h('button', {
           class: 'chip', type: 'button', 'aria-pressed': String(st.daysAgo === i), onclick: () => { st.daysAgo = i; render(); },
         }, h('span', null, dayLabel(i)), h('small', null, dayMon(istDay(i))))))),
@@ -331,4 +322,177 @@ function editSheet(t, secId, date, key, current, done) {
     h('div', { class: 'link-add' }, fLink, iconBtn('add_link', () => addLink(), 'Add link', 'tonal')),
     linkList, err,
     h('div', { class: 'sheet-actions' }, bDel, h('span', { class: 'grow' }), bSave));
+}
+
+// ------------------------------------------------------------------ exam marks: one section
+const MK_RE = /^\d{1,3}(\.\d{1,2})?$/;
+/// '' (no mark), 'AB', a number 0..max (2 decimals) or false (not valid)
+function mkParse(text, max) {
+  const v = String(text ?? '').trim().toUpperCase();
+  if (v === '') return '';
+  if (v === 'AB' || v === 'A') return 'AB';
+  if (!MK_RE.test(v)) return false;
+  const n = Number(v);
+  return n >= 0 && n <= max ? n : false;
+}
+const mkShow = (v) => (v === undefined || v === null ? '' : String(v));
+
+function openMarks(t, secId) {
+  const wrap = h('div', { class: 'mk-page' });
+  const main = pushPage('Marks · ' + sectionText(secId), wrap);
+  const pref = (k) => Prefs.get(`mk:${secId}:${k}`), setPref = (k, v) => Prefs.set(`mk:${secId}:${k}`, v);
+  const st = { cfg: null, err: null, term: pref('term'), code: pref('code'), subj: pref('subj'), sheet: null, sheetErr: null, rows: [], loadingSheet: false };
+  pullToRefresh(main, () => load(true));
+
+  const mine = t.allowed(secId);
+  /// subjects of this section the teacher may write, with the max marks per assessment (a student's class / stream decides his subjects)
+  const subjects = () => {
+    const out = new Map();
+    for (const subs of Object.values(st.cfg?.keys || {})) {
+      for (const [k, x] of Object.entries(subs || {})) {
+        if (!mine.includes(k)) continue;
+        const o = out.get(k) || { key: k, name: x.n || t.nameOf(k), mx: {} };
+        for (const [c, m] of Object.entries(x.mx || {})) o.mx[c] = Math.max(o.mx[c] || 0, Number(m) || 0);
+        out.set(k, o);
+      }
+    }
+    return [...out.values()].sort((p, q) => p.name.localeCompare(q.name));
+  };
+  const terms = () => (st.cfg?.terms || []).filter((x) => (x.c || []).some((c) => subjects().some((s) => s.mx[c])));
+  const codes = () => ((st.cfg?.terms || []).find((x) => x.id === st.term)?.c || []).filter((c) => subjects().some((s) => s.mx[c]));
+  const subsFor = () => subjects().filter((s) => s.mx[st.code]);
+  const asName = (c) => st.cfg?.as?.[c] || c;
+  const dirty = () => st.rows.filter((r) => mkParse(r.input.value, r.max) !== r.orig).length;
+
+  function fix() {
+    const T = terms();
+    if (!T.some((x) => x.id === st.term)) st.term = T[0]?.id || '';
+    const C = codes();
+    if (!C.includes(st.code)) st.code = C[0] || '';
+    const S = subsFor();
+    if (!S.some((x) => x.key === st.subj)) st.subj = S[0]?.key || '';
+    setPref('term', st.term); setPref('code', st.code); setPref('subj', st.subj);
+  }
+  async function load(force) {
+    try { st.cfg = await Repo.mkcfg(secId, force); st.err = null; } catch (e) { st.err = e; }
+    if (st.cfg) fix();
+    render();
+    if (st.cfg && st.subj) await loadSheet(force);
+  }
+  const path = () => sheetPath(secId, st.cfg.session, st.term, st.code, st.subj);
+  async function loadSheet(force) {
+    st.loadingSheet = true; st.sheet = null; st.sheetErr = null; renderSheet();
+    try { st.sheet = await Repo.sheet(path(), force); } catch (e) { st.sheetErr = e; }
+    st.loadingSheet = false; renderSheet();
+  }
+  async function pick(kind, v) {
+    if (st[kind] === v) return;
+    if (dirty()) {
+      const ok = await dialog({ icon: 'error', title: 'Marks not saved', text: 'The marks you typed on this sheet are not saved yet. Leave them?',
+        actions: [{ label: 'Stay', value: false }, { label: 'Leave', value: true, kind: 'filled' }] });
+      if (!ok) return;
+    }
+    st[kind] = v; fix(); render(); loadSheet(false);
+  }
+
+  const sheetBox = h('div');
+  function render() {
+    clear(wrap);
+    if (!st.cfg && !st.err) { wrap.append(skeleton(4)); return; }
+    if (!st.cfg) {
+      wrap.append(st.err ? messageBox('wifi_off', errorText(st.err), () => { st.err = null; render(); load(true); })
+        : messageBox('history', 'The marks list of this class has not come from EduNest yet. Ask the office to open EduNest once, then pull down to refresh.'));
+      return;
+    }
+    if (!subjects().length) { wrap.append(messageBox('info', 'No exam marks are set for your subjects in this class (EduNest: Academics Setup).')); return; }
+    const chipRow = (label, items, cur, kind) => [h('div', { class: 'section-label' }, label),
+      h('div', { class: 'chips', role: 'group' }, items.map(([v, text]) => ripple(h('button', { class: 'chip', type: 'button', 'aria-pressed': String(v === cur), onclick: () => pick(kind, v) }, h('span', null, text)))))];
+    wrap.append(h('div', { class: 'fade-in' }, demoBanner(),
+      chipRow('Term', terms().map((x) => [x.id, x.n || x.id]), st.term, 'term'),
+      chipRow('Assessment', codes().map((c) => [c, asName(c)]), st.code, 'code'),
+      chipRow('Subject', subsFor().map((x) => [x.key, x.name]), st.subj, 'subj'),
+      sheetBox));
+    renderSheet();
+  }
+
+  function renderSheet() {
+    clear(sheetBox);
+    if (!st.cfg || !st.subj) return;
+    if (st.loadingSheet) { sheetBox.append(skeleton(5)); return; }
+    if (st.sheetErr) { sheetBox.append(messageBox('wifi_off', errorText(st.sheetErr), () => loadSheet(true))); return; }
+    const keys = st.cfg.keys || {};
+    const max = Number(keys && Object.values(keys).map((s) => s?.[st.subj]?.mx?.[st.code]).find((m) => m)) || 0;
+    const studs = (st.cfg.st || []).filter((x) => Number(keys[x.k]?.[st.subj]?.mx?.[st.code]) > 0)
+      .sort((p, q) => (Number(p.r) || 9999) - (Number(q.r) || 9999) || String(p.n).localeCompare(String(q.n)));
+    const m = st.sheet?.m || {};
+    const count = h('span', { class: 'pill' });
+    const saveBar = h('div', { class: 'mk-save' });
+    const upd = () => {
+      const filled = st.rows.filter((r) => mkParse(r.input.value, r.max) !== '').length, d = dirty();
+      clear(count).append(`${filled}/${st.rows.length} entered`);
+      count.className = 'pill' + (filled === st.rows.length && st.rows.length ? ' ok' : '');
+      bSave.disabled = !d || st.rows.some((r) => mkParse(r.input.value, r.max) === false);
+      clear(bSaveLabel).append(d ? `Save ${d} ${d === 1 ? 'change' : 'changes'}` : 'Saved');
+    };
+    st.rows = studs.map((x) => {
+      const mx = Number(keys[x.k][st.subj].mx[st.code]) || max;
+      const orig = m[x.a] === undefined ? '' : (String(m[x.a]).toUpperCase() === 'AB' ? 'AB' : Number(m[x.a]));
+      const input = h('input', { class: 'mk-in', type: 'text', inputmode: 'decimal', autocomplete: 'off', enterkeyhint: 'next', value: mkShow(orig), 'aria-label': `${x.n} marks out of ${mx}` });
+      const ab = h('button', { class: 'mk-ab', type: 'button', 'aria-label': 'Absent', title: 'Absent' }, 'AB');
+      const row = h('div', { class: 'mk-row' }, h('div', { class: 'mk-roll' }, x.r || ''), h('div', { class: 'mk-name' }, h('b', null, x.n), h('small', null, 'Adm ' + x.a)), input, ab);
+      const r = { adm: x.a, max: mx, orig, input, row };
+      const check = () => {
+        const v = mkParse(input.value, mx);
+        row.classList.toggle('bad', v === false); row.classList.toggle('chg', v !== false && v !== orig); ab.classList.toggle('on', v === 'AB'); upd();
+      };
+      input.addEventListener('input', check);
+      input.addEventListener('focus', () => {
+        setTimeout(() => input.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 250);
+      });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const i = st.rows.indexOf(r);
+          const next = st.rows[i + 1]?.input || input;
+          next.focus();
+          next.select();
+          setTimeout(() => next.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 100);
+        }
+      });
+      ab.addEventListener('click', () => { input.value = mkParse(input.value, mx) === 'AB' ? '' : 'AB'; check(); });
+      setTimeout(check, 0);
+      return r;
+    });
+    const bSave = btn('filled', 'Saved', () => save(), { icon: 'check', class: 'btn-big mk-btn', disabled: true });
+    const bSaveLabel = bSave.querySelector('.btn-label');
+    async function save() {
+      const cells = {};
+      for (const r of st.rows) {
+        const v = mkParse(r.input.value, r.max);
+        if (v === false) { r.input.focus(); return snackbar(`Marks must be 0 to ${r.max} or AB`); }
+        if (v !== r.orig) cells[r.adm] = v === '' ? null : v;
+      }
+      if (!Object.keys(cells).length) return;
+      setBusy(bSave, true);
+      try {
+        await a.saveCells(path(), { secId, session: st.cfg.session, term: st.term, code: st.code, subj: st.subj }, cells, t.name);
+        for (const r of st.rows) { if (r.adm in cells) r.orig = cells[r.adm] === null ? '' : cells[r.adm]; r.input.dispatchEvent(new Event('input')); }
+        snackbar('Marks saved. They reach EduNest within a minute.');
+      } catch (e) { snackbar(errorText(e)); }
+      setBusy(bSave, false); upd();
+    }
+    const subName = subsFor().find((x) => x.key === st.subj)?.name || st.subj;
+    const by = st.sheet?.by ? `Last saved by ${st.sheet.by}` : 'Nothing saved yet';
+    sheetBox.append(
+      h('div', { class: 'section-label', style: { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' } },
+        `${subName} · ${asName(st.code)} · Max ${max}`, count),
+      h('div', { class: 'mk-help' }, `Type marks, or tap AB for absent. ${by}.`),
+      studs.length ? h('div', { class: 'mk-list' }, st.rows.map((r) => r.row)) : messageBox('groups', 'No student of this section has this subject.'),
+      saveBar);
+    saveBar.append(bSave);
+    upd();
+  }
+
+  render();
+  load(false);
 }

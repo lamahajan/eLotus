@@ -1,6 +1,6 @@
 rules_version = '2';
 
-// EduNest Parent App + Teacher App - Firestore security rules.
+// EduNest Parent App + Teacher App - Firestore security rules (with Teacher App exam marks, EduNest 1.0.52).
 // Paste this whole file in Firebase console > Firestore Database > Rules, then press Publish.
 //
 // Who is who (the claims are put on every login by the school's EduNest server):
@@ -60,6 +60,30 @@ service cloud.firestore {
       allow update: if isTeacher() && mySection(id) && shapeOk(id)
         && request.resource.data.subjects.diff(resource.data.subjects).affectedKeys().hasOnly(allowed(id));
       allow delete: if false;
+    }
+
+    // Exam marks (Teacher App <-> EduNest Mark Entry). Written by EduNest: mkcfg (students, subjects, max marks of a section).
+    match /mkcfg/{secId} {
+      allow get: if isTeacher() && secId in request.auth.token.s;
+      allow list, write: if false;
+    }
+    // One sheet per section / session / term / assessment / subject: id = <secId>~<session>~<term>~<code>~<subjectKey>
+    match /marks/{id} {
+      function parts(x) { return x.split('~'); }
+      function mayWrite(sec, subj) {
+        let t = get(/databases/$(database)/documents/teachers/$(request.auth.uid)).data;
+        return subj in t.secs.get(sec, []) || (t.ct == sec && subj in t.ctSubj.keys());
+      }
+      function sheetOk(x) {
+        let d = request.resource.data;
+        return parts(x).size() == 5
+          && d.keys().hasOnly(['secId', 'session', 'term', 'code', 'subj', 'm', 'upd', 'by', 'src'])
+          && d.secId == parts(x)[0] && d.subj == parts(x)[4] && d.m is map && d.m.size() <= 200
+          && d.upd == request.time && d.src == 't' && d.by is string;
+      }
+      allow get: if isTeacher() && parts(id).size() == 5 && parts(id)[0] in request.auth.token.s;
+      allow list, delete: if false;
+      allow create, update: if isTeacher() && sheetOk(id) && parts(id)[0] in request.auth.token.s && mayWrite(parts(id)[0], parts(id)[4]);
     }
 
     // everything else: closed

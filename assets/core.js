@@ -7,6 +7,9 @@ const qs = new URLSearchParams(location.search);
 export const DEMO = qs.has('demo') || !(CFG.firebase && CFG.firebase.apiKey);
 export const DOMAIN = 'p.edunest.app'; // must match cloud_parent.py DOMAIN
 export const KEEP_DAYS = 60;            // must match cloud_parent.py KEEP_DAYS
+/// part of a marks sheet id (must match cloud_marks.part and erp-parent-app.js): <secId>~<session>~<term>~<code>~<subjectKey>
+export const idPart = (x) => String(x ?? '').replace(/[^A-Za-z0-9_-]/g, '-') || '-';
+export const sheetPath = (sec, session, term, code, subj) => `marks/${sec}~${idPart(session)}~${idPart(term)}~${idPart(code)}~${subj}`;
 const SITE = new URL('../', import.meta.url);
 export const siteUrl = (p) => (p ? new URL(p, SITE).href : '');
 
@@ -142,6 +145,11 @@ function firebaseApi() {
     getServer: (path) => wrap(F.getDocFromServer(F.doc(db, path)).then(snap)),
     setMerge: (path, data) => wrap(F.setDoc(F.doc(db, path), data, { merge: true })),
     removeField: (path, field, extra) => wrap(F.updateDoc(F.doc(db, path), { [field]: F.deleteField(), ...extra })),
+    /// exam marks: only the changed cells of one sheet (null = clear that mark); upd is the server's clock (EduNest picks changes up by it)
+    saveCells: (path, head, cells, by) => wrap(F.setDoc(F.doc(db, path), {
+      ...head, by: String(by || ''), src: 't', upd: F.serverTimestamp(),
+      m: Object.fromEntries(Object.entries(cells).map(([k, v]) => [k, v === null ? F.deleteField() : v])),
+    }, { merge: true })),
   };
 }
 
@@ -179,7 +187,8 @@ export function loginErrorText(code, who) {
   const office = who === 'p' ? 'school office' : 'office';
   switch (code) {
     case 'wrong-password': case 'invalid-credential': case 'invalid-login-credentials': case 'user-not-found':
-      return `Wrong password. First time? Use ${first}. Forgot it? Ask the ${office} to reset it.`;
+      return who === 'p' ? `Wrong password. The password is Mobile No 1 (10 digits) given in the admission form. If the number was changed, ask the ${office}.`
+        : `Wrong password. The password is ${first} saved at school. If it does not work, ask the ${office}.`;
     case 'user-disabled': return `This login is blocked. Please contact the ${office}.`;
     case 'too-many-requests': return 'Too many wrong attempts. Please try again after some time.';
     case 'network-request-failed': case 'unavailable': return 'No internet connection. Please try again.';
@@ -342,6 +351,7 @@ export function sheet(build) {
     handle.addEventListener('pointerdown', (e) => { y0 = e.clientY; dy = 0; handle.setPointerCapture(e.pointerId); panel.style.transition = 'none'; });
     handle.addEventListener('pointermove', (e) => { if (y0 == null) return; dy = Math.max(0, e.clientY - y0); panel.style.transform = `translateY(${dy}px)`; });
     handle.addEventListener('pointerup', () => { panel.style.transition = ''; panel.style.transform = ''; if (dy > 90) popLayer(); y0 = null; });
+    handle.addEventListener('pointercancel', () => { panel.style.transition = ''; panel.style.transform = ''; y0 = null; });
     pushLayer(() => { layer.classList.remove('open'); setTimeout(() => layer.remove(), 280); resolve(result); });
   });
 }
@@ -400,8 +410,14 @@ export function pullToRefresh(scroller, onRefresh) {
       ind.style.transform = '';
     }
   };
+  const cancel = () => {
+    if (busy) return;
+    y0 = null;
+    ind.classList.remove('pulling');
+    ind.style.transform = '';
+  };
   scroller.addEventListener('touchend', end);
-  scroller.addEventListener('touchcancel', end);
+  scroller.addEventListener('touchcancel', cancel);
 }
 
 export function messageBox(ic, text, onRetry) {

@@ -1,11 +1,11 @@
 // EduNest Parent App (web / PWA). Same data and the same read-saving rules as the old Flutter app:
-//   student          server at most every 6 h (pull to refresh: now)
+//   student          server at most every 15 min (attendance / fees change during the day; pull to refresh: now)
 //   today            server at most every 30 min
 //   yesterday        server at most every 6 h
 //   2..7 days ago    phone first, server only if the phone never saw that day
 //   older (to 60)    only when "Older homework" is opened, 7 days at a time, phone first
 import {
-  CFG, DOMAIN, KEEP_DAYS, h, icon, clear, applyTheme, registerSW, api, getCacheFirst, getFresh, claims, needsNewPassword, changePassword,
+  CFG, DOMAIN, KEEP_DAYS, h, icon, clear, applyTheme, registerSW, api, getCacheFirst, getFresh, claims,
   loginErrorText, errorText, Prefs, istDay, parseYmd, niceDate, shortDate, dayMon, weekDay, rupees, dateTimeText, btn, iconBtn, setBusy, field,
   snackbar, dialog, sheet, pushPage, popLayer, dropAllLayers, topBar, watchScroll, pullToRefresh, messageBox, skeleton, avatarLetter, hueClass,
   demoBanner, installCard, offlineChip, spinner, ripple, brandMark, brandDot,
@@ -27,7 +27,7 @@ const Repo = {
     } catch { return CFG.schoolName || ''; }
   },
   async student(adm, force) {
-    const s = await getFresh('students/' + adm, 6 * HOUR, force);
+    const s = await getFresh('students/' + adm, 15 * MIN, force);
     return s.data ? toStudent(adm, s.data) : null;
   },
   async day(secId, daysAgo, force) {
@@ -95,9 +95,7 @@ a.onAuth(async (u) => {
     const c = await claims(false);
     if (v !== gate) return;
     if (c.role !== 'p') { loginMsg = 'This is not a parent login.'; await logout(true); return; }
-    const np = await needsNewPassword().catch(() => false);
-    if (v !== gate) return;
-    np ? showNewPassword() : showHome();
+    showHome();   // the password is always the mobile number (school rule): no new-password screen
   } catch (e) {
     if (v === gate) showHome();
   }
@@ -122,7 +120,7 @@ async function showLogin() {
   const err = h('div', { class: 'login-err', role: 'alert', hidden: true });
   const showErr = (m) => { err.hidden = !m; clear(err).append(icon('error'), h('span', null, m || '')); };
   const fAdm = field({ label: 'Admission No', lead: 'badge', inputmode: 'numeric', autocomplete: 'username', name: 'username', onenter: () => fPw.input.focus() });
-  const fPw = field({ label: 'Password', type: 'password', lead: 'lock', helper: 'First time: Mobile No 1 (10 digits)', autocomplete: 'current-password', name: 'password', onenter: () => go() });
+  const fPw = field({ label: 'Password', type: 'password', lead: 'lock', helper: 'Password: Mobile No 1 (10 digits)', autocomplete: 'current-password', name: 'password', onenter: () => go() });
   fAdm.input.value = Prefs.get('lastAdm') || '';
   const go = async () => {
     const adm = fAdm.input.value.trim(), pw = fPw.input.value;
@@ -152,41 +150,6 @@ async function showLogin() {
     demoBanner(), installCard()));
   mount(page);
   Repo.appName().then((n) => { if (n) { title.textContent = n; document.title = n; } });
-}
-
-// ------------------------------------------------------------------ first login: choose a password
-function showNewPassword() {
-  let askCurrent = false;
-  const err = h('div', { class: 'login-err', role: 'alert', hidden: true });
-  const showErr = (m) => { err.hidden = !m; clear(err).append(icon('error'), h('span', null, m || '')); };
-  const fCur = field({ label: 'Current password (Mobile No 1)', type: 'password', autocomplete: 'current-password' });
-  const fA = field({ label: 'New password', type: 'password', autocomplete: 'new-password' });
-  const fB = field({ label: 'Confirm new password', type: 'password', autocomplete: 'new-password', onenter: () => save() });
-  fCur.hidden = true;
-  const save = async () => {
-    const p1 = fA.input.value, p2 = fB.input.value;
-    if (p1 !== p2) return showErr('The two passwords do not match');
-    if (p1.length < 6) return showErr('Password must be at least 6 characters');
-    if (/^\d{10}$/.test(p1)) return showErr('Do not use a mobile number as your password, choose something else');
-    showErr(null);
-    setBusy(b, true);
-    try {
-      await changePassword(p1, askCurrent ? fCur.input.value : null);
-      snackbar('New password saved');
-      showHome();
-    } catch (e) {
-      if (e.code === 'RECENT_LOGIN') { askCurrent = true; fCur.hidden = false; showErr('For security, also enter your current password (Mobile No 1)'); }
-      else showErr(e.message);
-    } finally { setBusy(b, false); }
-  };
-  const b = btn('filled', 'Save', save, { class: 'btn-big btn-block', icon: 'check' });
-  const main = h('main', { class: 'content' }, h('div', { class: 'wrap', style: { padding: '8px 20px' } },
-    h('div', { class: 'empty-icon', style: { margin: '8px 0 20px', background: 'var(--primary-container)', color: 'var(--on-primary-container)' } }, icon('key')),
-    h('p', { style: { color: 'var(--on-surface-variant)', margin: '0 0 24px' } }, 'Your password is currently Mobile No 1. Choose a new password; you will use it to log in from now on.'),
-    err, fCur, fA, fB, b));
-  const bar = topBar({ title: 'Create a new password', actions: [btn('text', 'Logout', () => logout(true))] });
-  watchScroll(main, bar);
-  mount(h('div', { class: 'page' }, bar, main));
 }
 
 // ------------------------------------------------------------------ home: children + 4 tabs
