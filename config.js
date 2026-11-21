@@ -7,7 +7,7 @@
 // While apiKey is empty the apps open in DEMO mode with sample data.
 window.EDUNEST = {
   firebase: {
-     apiKey: "AIzaSyDIcvczaSADZZNIOdxWLfVgl7zVLXB2km0",
+     apiKey: "AIzaSyDIcvczaSADZZNIOdxWLfVgl7zVLXB2km0?Demo",
   authDomain: "edunest-60b0e.firebaseapp.com",
   projectId: "edunest-60b0e",
   appId: "1:634531246952:web:6fe8c390e02204e88e5cdd"
