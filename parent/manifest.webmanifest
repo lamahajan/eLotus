@@ -1,17 +1,19 @@
 {
-  "id": "./",
-  "name": "Parent App",
-  "short_name": "Parent App",
-  "description": "Fees, attendance and homework: your child's school updates.",
+  "id": "/parent/",
+  "name": "Lotus EduNest · Parent Portal",
+  "short_name": "Lotus Parent",
+  "description": "Real-time attendance, fee receipts, homework and school announcements for Lotus International School parents.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
   "orientation": "any",
-  "background_color": "#F2F2F7",
-  "theme_color": "#F2F2F7",
+  "background_color": "#F8F9FD",
+  "theme_color": "#0B57D0",
   "lang": "en-IN",
   "categories": [
-    "education"
+    "education",
+    "productivity"
   ],
   "icons": [
     {
@@ -31,6 +33,41 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    },
+    {
+      "src": "../icons/parent-180.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../icons/parent-96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Attendance",
+      "short_name": "Attendance",
+      "description": "Check attendance record",
+      "url": "./#att",
+      "icons": [{ "src": "../icons/parent-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Fees & Dues",
+      "short_name": "Fees",
+      "description": "Fee dues & receipts",
+      "url": "./#fees",
+      "icons": [{ "src": "../icons/parent-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Daily Homework",
+      "short_name": "Homework",
+      "description": "View daily assignments",
+      "url": "./#hw",
+      "icons": [{ "src": "../icons/parent-192.png", "sizes": "192x192" }]
     }
   ]
 }

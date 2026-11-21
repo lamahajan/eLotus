@@ -13,6 +13,7 @@ window.EDUNEST = {
     appId: "1:634531246952:web:6fe8c390e02204e88e5cdd"
   },
   schoolName: 'Lotus International School',   // shown on the login screens
+  appName: 'Lotus EduNest',                   // official app branding
   themeColor: '#59164C',   // Teacher App colour (plum); the whole app is coloured from it (Material You)
   parentThemeColor: '#0B57D0',   // Parent App colour (blue)
   // School logo files (folder 'school'). Leave '' to show a plain icon instead.

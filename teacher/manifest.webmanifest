@@ -1,17 +1,19 @@
 {
-  "id": "./",
-  "name": "Teacher App",
-  "short_name": "Teacher App",
-  "description": "Post homework for your classes; parents see it right away.",
+  "id": "/teacher/",
+  "name": "Lotus EduNest · Teacher Portal",
+  "short_name": "Lotus Teacher",
+  "description": "Post homework, enter exam marks and publish class notices for Lotus International School teachers.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
   "orientation": "any",
-  "background_color": "#F2F2F7",
-  "theme_color": "#F2F2F7",
+  "background_color": "#FDF7FB",
+  "theme_color": "#59164C",
   "lang": "en-IN",
   "categories": [
-    "education"
+    "education",
+    "productivity"
   ],
   "icons": [
     {
@@ -31,6 +33,41 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    },
+    {
+      "src": "../icons/teacher-180.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../icons/teacher-96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "Teacher dashboard & timetable",
+      "url": "./#home",
+      "icons": [{ "src": "../icons/teacher-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Post Homework",
+      "short_name": "Homework",
+      "description": "Publish homework for classes",
+      "url": "./#hw",
+      "icons": [{ "src": "../icons/teacher-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Exam Marks",
+      "short_name": "Marks",
+      "description": "Enter and review exam marks",
+      "url": "./#marks",
+      "icons": [{ "src": "../icons/teacher-192.png", "sizes": "192x192" }]
     }
   ]
 }

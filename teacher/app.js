@@ -111,6 +111,7 @@ async function logout(silent) {
 
 // ------------------------------------------------------------------ login
 function showLogin() {
+  document.title = 'Lotus EduNest · Teacher Portal';
   const err = h('div', { class: 'login-err', role: 'alert', hidden: true });
   const showErr = (m) => { err.hidden = !m; clear(err).append(icon('error'), h('span', null, m || '')); };
   const fU = field({ label: 'Username', lead: 'person', helper: 'e.g. ravi.kumar', autocomplete: 'username', name: 'username', onenter: () => fP.input.focus() });
@@ -135,10 +136,10 @@ function showLogin() {
   if (loginMsg) { showErr(loginMsg); loginMsg = null; }
   mount(h('div', { class: 'page' }, h('div', { class: 'chooser-top' }, themeBtn()), h('div', { class: 'login' },
     h('div', { class: 'login-hero' }, brandMark('co_present'), h('h1', null, CFG.schoolName || 'Teacher Login'),
-      h('div', { class: 'login-kicker' }, 'Teacher App'), h('p', null, 'Your EduNest username and password')),
+      h('div', { class: 'login-kicker' }, 'Lotus EduNest · Teacher Portal'), h('p', null, 'Your EduNest username and password')),
     h('form', { class: 'login-form', onsubmit: (e) => { e.preventDefault(); go(); } }, err, fU, fP, b),
     h('div', { class: 'login-tip' }, 'Homework and notices you post here show up in the Parent App of your classes right away.'),
-    demoBanner(), installCard())));
+    demoBanner(), installCard('Lotus Teacher'))));
 }
 
 // ------------------------------------------------------------------ notices
@@ -146,7 +147,7 @@ const MAX_MY_NOTICES = 20;
 const NRepo = {
   async board(force) {
     const out = [];
-    try { const b = await getFresh('notices/board', 30 * MIN, force); out.push(...(Array.isArray(b.data?.list) ? b.data.list : [])); } catch { /* none yet */ }
+    try { const b = await getFresh('notices/board', 5 * MIN, force); out.push(...(Array.isArray(b.data?.list) ? b.data.list : [])); } catch { /* none yet */ }
     try { const p = await getFresh('notices/principal', 60 * MIN, force); out.push(...(Array.isArray(p.data?.list) ? p.data.list : []).map((n) => ({ ...n, prin: true }))); } catch { /* none */ }
     return out;
   },
@@ -176,7 +177,9 @@ async function loadNotices(t, force) {
     if (!n || (n.aud && n.aud !== 'all' && n.aud !== 't')) continue;
     const secs = Array.isArray(n.secs) ? n.secs.map(String) : [];
     if (secs.length && !secs.some((x) => t.sections.includes(x))) continue;
-    out.push({ ...n, secs, src: 'school', mine: !!(n.prin && n.uid === a.user()?.uid), prin: !!n.prin });
+    const tTitle = n.t || n.title || (n?.secs && typeof n.secs === 'object' && !Array.isArray(n.secs) ? n.secs.t : '') || '';
+    const bBody = n.b || n.body || n.desc || n.msg || '';
+    out.push({ ...n, t: tTitle, b: bBody, secs, src: 'school', mine: !!(n.prin && n.uid === a.user()?.uid), prin: !!n.prin });
   }
   const uid = a.user()?.uid;
   await Promise.all(t.sections.map(async (sec) => {
@@ -258,6 +261,7 @@ const TTABS = [
   { id: 'marks', label: 'Marks', icon: 'edit_note' },
 ];
 function showHome() {
+  document.title = 'Lotus EduNest · Teacher Portal';
   Prefs.remove('ttab');
   const st = { t: null, err: null, loading: true, daysAgo: 0, tab: 'home', notices: null, today: null };
   const main = h('main', { class: 'content' });
@@ -304,7 +308,7 @@ function showHome() {
     clear(title);
     const t = st.t;
     title.append(h('div', { class: 'app-head' },
-      h('div', { class: 'school-id' }, schoolBadge(), h('div', { class: 'school-txt' }, h('b', null, CFG.schoolName || 'School'), h('span', null, 'Teacher Portal'))),
+      h('div', { class: 'school-id' }, schoolBadge(), h('div', { class: 'school-txt' }, h('b', null, CFG.appName || 'Lotus EduNest'), h('span', null, 'Teacher Portal · ' + (CFG.schoolName || 'LIS')))),
       t ? h('div', { class: 'kid-switch', style: { cursor: 'default' } }, avatarLetter(t.name, 'sm'),
         h('span', { class: 't' }, h('span', { class: 'n' }, t.name.split(/\s+/)[0]), h('span', { class: 'c' }, t.ct ? 'Class ' + t.ct : `${t.sections.length} classes`))) : null));
   }

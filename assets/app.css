@@ -2378,136 +2378,395 @@ h1, h2, h3, .wval, .nt, .gp-t, .topbar-title { font-variation-settings: 'ROND' 1
   contain: paint;
 }
 
-/* 9. Desktop & PC Version (Width >= 960px: Laptops, Desktops, Ultrawide Monitors) */
+/* 9. Dedicated Desktop & PC Layout (min-width: 900px: Laptops, Desktops, Monitors) */
 @keyframes btn-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 .spinning i { animation: btn-spin 0.8s linear infinite; }
 
-@media (min-width: 960px) {
+@media (min-width: 900px) {
   :root {
-    --maxw: 1060px;
-  }
-  .content > * {
-    max-width: var(--maxw) !important;
-  }
-  .topbar {
-    max-width: var(--maxw) !important;
-    margin: 0 auto !important;
-    padding: 0 24px !important;
-  }
-  .topbar.scrolled {
-    max-width: var(--maxw) !important;
+    --maxw: 1240px;
   }
 
-  /* Desktop Header Typography */
-  .greet2 {
-    margin: 12px 0 24px 0 !important;
+  /* Full-width SaaS Portal Structure */
+  .page {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100vh !important;
+    overflow: hidden !important;
+    background: var(--surface) !important;
   }
-  .greet2 h1 {
-    font-size: 32px !important;
-    letter-spacing: -0.025em !important;
+
+  /* Desktop Header Bar (Tier 1: Global Branding & Controls) */
+  .page .topbar,
+  .topbar {
+    order: 0 !important;
+    position: relative !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 68px !important;
+    height: 68px !important;
+    padding: 0 40px !important;
+    margin: 0 !important;
+    background: var(--surface) !important;
+    border-bottom: 1px solid var(--outline-variant) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    z-index: 30 !important;
+    box-shadow: none !important;
+    box-sizing: border-box !important;
   }
-  .greet2 small {
+  .topbar.scrolled {
+    background: var(--surface) !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04) !important;
+  }
+  .topbar-title {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+  }
+  .app-head {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    gap: 20px !important;
+  }
+  .school-id {
+    display: flex !important;
+    align-items: center !important;
+    gap: 14px !important;
+  }
+  .school-badge {
+    width: 44px !important;
+    height: 44px !important;
+    border-radius: 14px !important;
+    font-size: 18px !important;
+  }
+  .school-txt b {
+    font-size: 17px !important;
+    font-weight: 750 !important;
+    letter-spacing: -0.3px !important;
+    color: var(--on-surface) !important;
+  }
+  .school-txt span {
+    font-size: 12.5px !important;
+    font-weight: 500 !important;
+    color: var(--on-surface-variant) !important;
+  }
+  .kid-switch {
+    height: 46px !important;
+    padding: 4px 14px 4px 6px !important;
+    border-radius: 23px !important;
+    background: var(--secondary-container) !important;
+    color: var(--on-secondary-container) !important;
+    border: 1px solid rgba(0,0,0,0.05) !important;
+    cursor: pointer !important;
+    transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+  }
+  .kid-switch:hover {
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08) !important;
+  }
+  .kid-switch .n {
+    font-size: 14px !important;
+    font-weight: 700 !important;
+  }
+  .kid-switch .c {
+    font-size: 11.5px !important;
+  }
+
+  /* Desktop Top Navigation Tab Bar (Tier 2: Desktop Tabs docked below header) */
+  .page.has-nav .navbar,
+  .navbar {
+    order: 1 !important;
+    position: relative !important;
+    bottom: auto !important;
+    left: auto !important;
+    right: auto !important;
+    transform: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 54px !important;
+    height: 54px !important;
+    margin: 0 !important;
+    padding: 0 40px !important;
+    border-radius: 0 !important;
+    background: var(--surface-container-low) !important;
+    border-top: none !important;
+    border-bottom: 1px solid var(--outline-variant) !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03) !important;
+    display: flex !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    gap: 8px !important;
+    z-index: 25 !important;
+    box-sizing: border-box !important;
+  }
+  .nav-item {
+    flex: 0 0 auto !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    padding: 7px 22px !important;
+    height: 38px !important;
+    min-height: 38px !important;
+    border-radius: 12px !important;
     font-size: 13.5px !important;
     font-weight: 600 !important;
+    color: var(--on-surface-variant) !important;
+    background: transparent !important;
+    cursor: pointer !important;
+    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+  .nav-item:hover {
+    background: var(--surface-container-high) !important;
+    color: var(--on-surface) !important;
+  }
+  .nav-item[aria-selected='true'] {
+    background: var(--secondary-container) !important;
+    color: var(--on-secondary-container) !important;
+    font-weight: 700 !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important;
+  }
+  .nav-pill {
+    background: transparent !important;
+    width: auto !important;
+    height: auto !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: inherit !important;
+    transform: none !important;
+  }
+  .nav-pill .ic {
+    font-size: 20px !important;
+    width: 20px !important;
+    height: 20px !important;
+  }
+  .nav-item[aria-selected='true'] .nav-pill {
+    background: transparent !important;
+    color: inherit !important;
+    transform: none !important;
+  }
+
+  /* Desktop Content Canvas */
+  .page.has-nav .content,
+  .content {
+    order: 2 !important;
+    flex: 1 1 auto !important;
+    overflow-y: auto !important;
+    padding: 36px 40px 60px !important;
+    max-width: var(--maxw) !important;
+    margin: 0 auto !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .content > * {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+  .page.has-nav {
+    padding-bottom: 0 !important;
+  }
+
+  /* Desktop Greeting & Banner */
+  .greet2 {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    margin: 4px 0 26px 0 !important;
+  }
+  .greet2 h1 {
+    font-size: 34px !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.025em !important;
+    color: var(--on-surface) !important;
+    line-height: 1.2 !important;
+  }
+  .greet2 small {
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.2px !important;
+    color: var(--on-surface-variant) !important;
+  }
+
+  /* Desktop Gatepass Banner */
+  .gp-slim {
+    padding: 18px 26px !important;
+    border-radius: 20px !important;
+    margin-bottom: 26px !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.04) !important;
+    border: 1px solid var(--outline-variant) !important;
   }
 
   /* Desktop 3-Column Executive Dashboard Grid */
   .wgrid {
+    display: grid !important;
     grid-template-columns: repeat(3, 1fr) !important;
-    gap: 20px !important;
-    margin-bottom: 28px !important;
+    gap: 24px !important;
+    margin-bottom: 32px !important;
   }
   .widget.wide {
     grid-column: span 1 !important;
   }
   .widget {
-    min-height: 156px !important;
-    padding: 22px 24px !important;
+    min-height: 160px !important;
+    padding: 24px !important;
     border-radius: 22px !important;
-    box-shadow: 0 4px 20px -4px rgba(0,0,0,0.06) !important;
-    transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s !important;
-    cursor: pointer;
+    border: 1px solid var(--outline-variant) !important;
+    box-shadow: 0 3px 14px rgba(0,0,0,0.04) !important;
+    transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s ease !important;
+    cursor: pointer !important;
   }
   .widget:hover {
     transform: translateY(-4px) !important;
-    box-shadow: 0 14px 34px -8px rgba(0,0,0,0.14) !important;
+    box-shadow: 0 14px 32px rgba(0,0,0,0.09) !important;
+  }
+  .widget .wtop {
+    margin-bottom: 14px !important;
+  }
+  .widget .wlbl {
+    font-size: 14px !important;
+    font-weight: 650 !important;
   }
   .widget .wval {
-    font-size: 28px !important;
+    font-size: 32px !important;
+    font-weight: 750 !important;
+    letter-spacing: -0.5px !important;
+  }
+  .widget .wsub {
+    font-size: 13.5px !important;
+    font-weight: 500 !important;
   }
 
-  /* Desktop School Notices Grid */
+  /* Desktop School & Class Notices Grid */
   .nrow {
     display: grid !important;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)) !important;
-    gap: 20px !important;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)) !important;
+    gap: 22px !important;
     overflow-x: visible !important;
     padding: 0 !important;
-    margin-bottom: 24px !important;
+    margin-bottom: 32px !important;
   }
   .nrow.one {
     grid-template-columns: 1fr !important;
   }
   .nrow .ncard {
     width: 100% !important;
+    max-width: 100% !important;
     flex: 1 1 100% !important;
     margin: 0 !important;
     border-radius: 20px !important;
-    min-height: 140px !important;
-    padding: 22px 24px !important;
+    min-height: 144px !important;
+    padding: 24px 26px !important;
+    border: 1px solid var(--outline-variant) !important;
+    box-shadow: 0 3px 14px rgba(0,0,0,0.04) !important;
+    transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+  }
+  .nrow .ncard:hover {
+    transform: translateY(-3px) !important;
+    box-shadow: 0 10px 26px rgba(0,0,0,0.08) !important;
   }
   .nrow .ncard .nt {
-    font-size: 18px !important;
+    font-size: 18.5px !important;
+    font-weight: 700 !important;
+  }
+  .nrow .ncard .nb {
+    font-size: 14.5px !important;
+    line-height: 1.5 !important;
   }
   .ndots {
     display: none !important;
   }
 
-  /* Desktop Gatepass Card */
-  .gp-slim {
+  /* Desktop Pushed Sub-Pages */
+  .page.pushed {
+    z-index: 40 !important;
+    background: var(--surface) !important;
+  }
+  .page.pushed .topbar {
+    max-width: 100% !important;
+    padding: 0 40px !important;
+    height: 68px !important;
+  }
+  .page.pushed .content {
     max-width: var(--maxw) !important;
-    padding: 16px 24px !important;
-    border-radius: 18px !important;
-    margin-bottom: 24px !important;
+    padding: 36px 40px 60px !important;
+    margin: 0 auto !important;
   }
 
-  /* Desktop Floating Dock Navigation */
-  .navbar {
+  /* Desktop Dialogs & Sheets Modal Window */
+  .sheet {
     max-width: 580px !important;
-    height: 60px !important;
-    border-radius: 30px !important;
-    bottom: 24px !important;
-    box-shadow: 0 18px 45px -8px rgba(0,0,0,0.22) !important;
+    margin: auto !important;
+    border-radius: 24px !important;
+    border: 1px solid var(--outline-variant) !important;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.22) !important;
   }
-  .nav-item {
-    font-size: 13px !important;
-    gap: 6px !important;
-    padding: 6px 18px !important;
-    border-radius: 22px !important;
-    transition: background 0.15s, transform 0.15s;
-  }
-  .nav-item:hover {
-    background: rgba(128,128,128,0.12);
+  .sheet-layer {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 32px !important;
   }
 
   /* Desktop Fees & Student ID Card */
   .idcard {
     max-width: 540px !important;
-    margin-left: 0 !important;
-    margin-bottom: 24px !important;
+    margin: 0 0 28px 0 !important;
+    border-radius: 22px !important;
   }
   .rc-table {
-    font-size: 14px !important;
+    font-size: 14.5px !important;
+    border-radius: 16px !important;
+    overflow: hidden !important;
+    border: 1px solid var(--outline-variant) !important;
   }
   .rc-table th, .rc-table td {
-    padding: 14px 20px !important;
+    padding: 16px 22px !important;
   }
 
-  /* Desktop Teacher Marks Table */
+  /* Desktop Teacher Marks Table (Spreadsheet Data Grid) */
+  .sheet-table-wrap {
+    max-height: 72vh !important;
+    border-radius: 18px !important;
+    border: 1px solid var(--outline-variant) !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.05) !important;
+  }
   .sheet-table {
-    font-size: 14px !important;
+    font-size: 14.5px !important;
+    width: 100% !important;
   }
   .sheet-table th, .sheet-table td {
-    padding: 10px 14px !important;
+    padding: 12px 18px !important;
+  }
+  .sheet-table input {
+    font-size: 15px !important;
+    height: 40px !important;
+    border-radius: 10px !important;
+  }
+
+  /* Desktop Login Portal */
+  .login {
+    max-width: 450px !important;
+    margin: 50px auto !important;
+    padding: 44px !important;
+    background: var(--surface) !important;
+    border-radius: 28px !important;
+    border: 1px solid var(--outline-variant) !important;
+    box-shadow: 0 16px 44px rgba(0,0,0,0.08) !important;
+  }
+  .login-hero {
+    margin-bottom: 24px !important;
+  }
+  .login-hero h1 {
+    font-size: 26px !important;
+  }
+  .login-form {
+    width: 100% !important;
+    margin: 0 !important;
   }
 }

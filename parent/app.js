@@ -42,7 +42,7 @@ const Repo = {
       }
     };
     try {
-      const b = await withFreshToken(() => getFresh('notices/board', 30 * MIN, force));
+      const b = await withFreshToken(() => getFresh('notices/board', 5 * MIN, force));
       for (const n of (Array.isArray(b.data?.list) ? b.data.list : [])) {
         if (!n || (n.aud !== 'all' && n.aud !== 'p' && n.aud)) continue;
         const secs = Array.isArray(n.secs) ? n.secs.map(String) : [];
@@ -92,7 +92,11 @@ const Repo = {
 const S = (d, k) => String(d?.[k] ?? '');
 const I = (d, k) => { const v = Number(d?.[k]); return Number.isFinite(v) ? Math.trunc(v) : 0; };
 const counts = (m) => { const p = I(m, 'P'), a = I(m, 'A'), l = I(m, 'L'), t = p + a + l; return { p, a, l, total: t, pct: t ? (p * 100) / t : 0 }; };
-const normNotice = (n) => ({ id: S(n, 'id'), t: S(n, 't'), b: S(n, 'b'), date: S(n, 'date'), exp: S(n, 'exp'), pin: n?.pin ? 1 : 0, by: S(n, 'by'), ts: I(n, 'ts') });
+const normNotice = (n) => {
+  const t = S(n, 't') || S(n, 'title') || (n?.secs && typeof n.secs === 'object' && !Array.isArray(n.secs) ? S(n.secs, 't') : '');
+  const b = S(n, 'b') || S(n, 'body') || S(n, 'desc') || S(n, 'msg');
+  return { id: S(n, 'id'), t, b, date: S(n, 'date'), exp: S(n, 'exp'), pin: n?.pin ? 1 : 0, by: S(n, 'by'), ts: I(n, 'ts') };
+};
 function toStudent(adm, d) {
   const fee = d.fee || {}, att = d.att || {}, pay = d.pay && typeof d.pay === 'object' ? d.pay : {};
   return {
@@ -191,13 +195,14 @@ async function showLogin() {
   const b = btn('filled', 'Login', go, { class: 'btn-big btn-block' });
   if (loginMsg) { showErr(loginMsg); loginMsg = null; }
   const page = h('div', { class: 'page' }, h('div', { class: 'chooser-top' }, themeBtn()), h('div', { class: 'login' },
-    h('div', { class: 'login-hero' }, brandMark('school-fill'), title, h('div', { class: 'login-kicker' }, 'Parent App'),
+    h('div', { class: 'login-hero' }, brandMark('school-fill'), title, h('div', { class: 'login-kicker' }, 'Lotus EduNest · Parent Portal'),
       h('p', null, 'Enter your child\'s Admission No and password')),
     h('form', { class: 'login-form', onsubmit: (e) => { e.preventDefault(); go(); } }, err, fAdm, fPw, b),
     h('div', { class: 'login-tip' }, 'More than one child at school? Use any one child\'s Admission No and all of them will show in the app.'),
-    demoBanner(), installCard()));
+    demoBanner(), installCard('Lotus Parent')));
   mount(page);
-  Repo.appName().then((n) => { if (n) { title.textContent = n; document.title = n; } });
+  document.title = 'Lotus EduNest · Parent Portal';
+  Repo.appName().then((n) => { if (n) { title.textContent = n; } });
 }
 
 // ------------------------------------------------------------------ header pieces
@@ -211,7 +216,7 @@ function schoolBadge() {
   return box;
 }
 function schoolId(sub) {
-  return h('div', { class: 'school-id' }, schoolBadge(), h('div', { class: 'school-txt' }, h('b', null, CFG.schoolName || 'School'), h('span', null, sub)));
+  return h('div', { class: 'school-id' }, schoolBadge(), h('div', { class: 'school-txt' }, h('b', null, CFG.appName || 'Lotus EduNest'), h('span', null, sub || CFG.schoolName || 'Parent Portal')));
 }
 
 // ------------------------------------------------------------------ home: children + 5 tabs
@@ -268,7 +273,14 @@ function showHome() {
     loadNotices(force);
   }
   async function loadNotices(force) {
-    try { st.notices = await Repo.notices([...st.kids.values()].map((k) => k.secId), force); } catch { st.notices = st.notices || []; }
+    try {
+      st.notices = await Repo.notices([...st.kids.values()].map((k) => k.secId), force);
+      if ((!st.notices || !st.notices.length) && !force) {
+        Repo.notices([...st.kids.values()].map((k) => k.secId), true).then((fresh) => {
+          if (fresh && fresh.length) { st.notices = fresh; if (st.tab === 'home') render(false); }
+        }).catch(() => {});
+      }
+    } catch { st.notices = st.notices || []; }
     if (st.tab === 'home') render(false);
   }
   async function refresh() {

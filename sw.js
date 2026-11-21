@@ -1,11 +1,11 @@
-// EduNest web apps: offline support. Change VERSION on every release so phones pick up the new files.
-const VERSION = 'edunest-web-1.7.3-p1';
+// Lotus EduNest web apps: offline support. Change VERSION on every release so browsers/PWAs pick up the new files.
+const VERSION = 'edunest-web-1.7.3-p2';
 const SHELL = [
   './', 'index.html', 'config.js',
   'assets/app.css', 'assets/core.js', 'assets/lib.js', 'assets/icons.js', 'assets/demo.js', 'assets/fonts/gsf.woff2',
   'parent/', 'parent/index.html', 'parent/app.js', 'parent/manifest.webmanifest',
   'teacher/', 'teacher/index.html', 'teacher/app.js', 'teacher/manifest.webmanifest',
-  'icons/parent-192.png', 'icons/teacher-192.png', 'icons/parent-favicon-32.png', 'icons/teacher-favicon-32.png', 'icons/parent-favicon-96.png', 'icons/teacher-favicon-96.png', 'icons/parent-96.png', 'icons/teacher-96.png', 'icons/edunest.svg',
+  'icons/parent-192.png', 'icons/teacher-192.png', 'icons/parent-180.png', 'icons/teacher-180.png', 'icons/parent-favicon-32.png', 'icons/teacher-favicon-32.png', 'icons/parent-favicon-96.png', 'icons/teacher-favicon-96.png', 'icons/parent-96.png', 'icons/teacher-96.png', 'icons/edunest.svg',
   'school/logo.webp', 'school/logo-name.webp', 'school/logo-name-dark.webp', 'school/logo-192.png',
 ];
 

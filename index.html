@@ -4,10 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="format-detection" content="telephone=no">
+<meta name="application-name" content="Lotus EduNest">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>EduNest Apps</title>
+<meta name="apple-mobile-web-app-title" content="Lotus EduNest">
+<title>Lotus EduNest · School Apps</title>
+<meta name="description" content="Lotus EduNest - Official digital campus portal for Lotus International School parents and teachers.">
+<meta property="og:title" content="Lotus EduNest · School Apps">
+<meta property="og:description" content="Lotus EduNest - Official digital campus portal for Lotus International School parents and teachers.">
+<meta property="og:type" content="website">
 <meta name="theme-color" content="#F2F2F7">
 <link rel="icon" href="school/logo-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/parent-180.png">
@@ -21,12 +27,12 @@
   const choice = (href, cls, ic, title, sub) => h('a', { class: 'choice ' + cls, href },
     h('div', { class: 'ci' }, icon(ic)), h('div', null, h('b', null, title), h('span', null, sub)), icon('arrow_forward'));
   document.getElementById('app').replaceChildren(h('div', { class: 'page' }, h('div', { class: 'chooser-top' }, themeBtn()), h('div', { class: 'content' }, h('div', { class: 'chooser' },
-    brandWordmark() || h('div', null, brandMark('school-fill'), h('h1', null, CFG.schoolName || 'EduNest')),
-    h('p', null, 'Choose your app'),
-    choice('parent/', 'a', 'family_restroom', 'Parent App', 'Dashboard, fees, attendance, homework, notices'),
-    choice('teacher/', 'b', 'co_present', 'Teacher App', 'Homework, exam marks and class notices'),
+    brandWordmark() || h('div', null, brandMark('school-fill'), h('h1', null, 'Lotus EduNest')),
+    h('p', null, 'Choose your portal'),
+    choice('parent/', 'a', 'family_restroom', 'Parent Portal', 'Dashboard, fees, attendance, homework, notices'),
+    choice('teacher/', 'b', 'co_present', 'Teacher Portal', 'Homework, exam marks and class notices'),
     demoBanner()))));
-  if (CFG.schoolName) document.title = CFG.schoolName;
+  if (CFG.schoolName) document.title = 'Lotus EduNest · ' + CFG.schoolName;
 </script>
 </head>
 <body><div id="app"></div></body>
