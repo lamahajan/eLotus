@@ -73,27 +73,44 @@ const PAL = {
 const kebab = (s) => s.replace(/[A-Z]/g, (m) => '-' + m.toLowerCase());
 export const theme = () => document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
 
-/// Material 3 (light) colour scheme made from the school colour (config.js themeColor), like Google's own apps (dynamic colour).
-export function applyTheme(hex) {
+/// Premium colour scheme made from ONE brand colour (config.js: themeColor = Teacher plum, parentThemeColor = Parent blue).
+/// Every role stays in the brand's own hue family (tinted surfaces, matching secondary, a close-neighbour accent), so a blue app is
+/// really blue everywhere and a plum app is really plum everywhere. Status colours (green / amber / red) stay fixed.
+export function scheme(hex) {
   const brand = /^#[0-9a-f]{6}$/i.test(hex || '') ? hex : '#59164C';
-  let v = PAL.light;
+  let v = { ...PAL.light };
   try {
-    const seed = F.argbFromHex(brand), sc = new F.SchemeTonalSpot(F.Hct.fromInt(seed), false, 0.0);
-    const c = (r) => F.hexFromArgb(F.MaterialDynamicColors[r].getArgb(sc));
-    const pal = (x) => F.TonalPalette.fromHueAndChroma(F.Hct.fromInt(F.argbFromHex(x)).hue, 36);   // calm green / amber, Google-like (no neon)
-    const g = pal('#1e8e3e'), w = pal('#e37400'), t = (p, n) => F.hexFromArgb(p.tone(n));
-    const roles = ['primary', 'onPrimary', 'primaryContainer', 'onPrimaryContainer', 'secondary', 'onSecondary', 'secondaryContainer', 'onSecondaryContainer',
-      'tertiary', 'onTertiary', 'tertiaryContainer', 'onTertiaryContainer', 'error', 'onError', 'errorContainer', 'onErrorContainer', 'surface', 'onSurface',
-      'onSurfaceVariant', 'surfaceContainerLowest', 'surfaceContainerLow', 'surfaceContainer', 'surfaceContainerHigh', 'surfaceContainerHighest', 'outline',
-      'outlineVariant', 'inverseSurface', 'inverseOnSurface', 'inversePrimary'];
-    v = { ...PAL.light, ...Object.fromEntries(roles.map((r) => [r, c(r)])),
-      ok: t(g, 40), okContainer: t(g, 92), onOkContainer: t(g, 20), warn: t(w, 45), warnContainer: t(w, 92), onWarnContainer: t(w, 25),
-      glass: c('surfaceContainer'), card: c('surfaceContainerLowest'), cardSolid: c('surfaceContainerLowest'), cardSubtle: c('surfaceContainerHigh'),
-      spec: c('outlineVariant'), bar: c('surface'), primary30: F.hexFromArgb(F.TonalPalette.fromInt(seed).tone(30)), tertiary30: F.hexFromArgb(sc.tertiaryPalette.tone(30)),
-      secondary30: F.hexFromArgb(sc.secondaryPalette.tone(30)), primary50: F.hexFromArgb(F.TonalPalette.fromInt(seed).tone(50)) };
+    const seed = F.argbFromHex(brand), hct = F.Hct.fromInt(seed), hue = hct.hue;
+    const tp = (h2, c) => F.TonalPalette.fromHueAndChroma(((h2 % 360) + 360) % 360, c);
+    const t = (p, n) => F.hexFromArgb(p.tone(n));
+    const P = tp(hue, Math.max(hct.chroma, 48));                              // brand
+    const S = tp(hue, 20);                                                      // quiet partner of the same hue
+    const T = tp(hue + (hue > 200 && hue < 300 ? -32 : 30), 38);                // close-neighbour accent (cyan next to blue, rose next to plum)
+    const N = tp(hue, 4), NV = tp(hue, 9), E = tp(25, 84);
+    const G = tp(145, 46), W = tp(62, 56);
+    const bt = Math.round(hct.tone);                                            // tone of the brand colour itself
+    v = { ...PAL.light,
+      primary: brand, onPrimary: '#ffffff', primaryContainer: t(P, 92), onPrimaryContainer: t(P, bt < 30 ? 20 : 15),
+      secondary: t(S, 38), onSecondary: '#ffffff', secondaryContainer: t(S, 92), onSecondaryContainer: t(S, 18),
+      tertiary: t(T, 38), onTertiary: '#ffffff', tertiaryContainer: t(T, 92), onTertiaryContainer: t(T, 18),
+      error: t(E, 42), onError: '#ffffff', errorContainer: t(E, 93), onErrorContainer: t(E, 22),
+      surface: t(N, 98), onSurface: t(N, 10), onSurfaceVariant: t(NV, 36),
+      surfaceContainerLowest: '#ffffff', surfaceContainerLow: t(N, 96), surfaceContainer: t(N, 95), surfaceContainerHigh: t(N, 93), surfaceContainerHighest: t(N, 91),
+      outline: t(NV, 60), outlineVariant: t(NV, 86), inverseSurface: t(N, 20), inverseOnSurface: t(N, 95), inversePrimary: t(P, 80),
+      ok: t(G, 38), okContainer: t(G, 92), onOkContainer: t(G, 18), warn: t(W, 42), warnContainer: t(W, 93), onWarnContainer: t(W, 22),
+      glass: t(N, 98), card: '#ffffff', cardSolid: '#ffffff', cardSubtle: t(N, 93), spec: t(NV, 86), bar: t(N, 98),
+      primaryDeep: t(P, Math.max(10, bt - 9)), primaryBright: t(P, Math.min(58, bt + 14)),
+      primary30: t(P, Math.max(10, bt - 9)), primary50: t(P, Math.min(58, bt + 14)),
+      secondary30: t(S, 30), tertiary30: t(T, 28), tertiaryBright: t(T, 46), tertiaryDeep: t(T, 28), warnDeep: t(W, 34), warnBright: t(W, 52),
+      okDeep: t(G, 30), okBright: t(G, 44) };
   } catch (e) { /* colour library missing: the fixed light palette is used */ }
+  v.brand = brand;
+  return v;
+}
+export function applyTheme(hex) {
+  const v = scheme(hex);
   PAL.m3 = v;
-  const css = `:root{${Object.entries(v).map(([r, x]) => `--${kebab(r)}:${x}`).join(';')};--brand:${brand};color-scheme:light}`;
+  const css = `:root{${Object.entries(v).map(([r, x]) => `--${kebab(r)}:${x}`).join(';')};color-scheme:light}`;
   let st = document.getElementById('m3-theme');
   if (!st) { st = document.createElement('style'); st.id = 'm3-theme'; document.head.append(st); }
   st.textContent = css;
@@ -243,20 +260,20 @@ export function loginErrorText(code, who) {
   const office = who === 'p' ? 'school office' : 'office';
   switch (code) {
     case 'wrong-password': case 'invalid-credential': case 'invalid-login-credentials': case 'user-not-found':
-      return `Wrong password. Please contact the ${office}.`;
-    case 'user-disabled': return `This login is blocked. Please contact the ${office}.`;
-    case 'too-many-requests': return 'Too many wrong attempts. Please try again after some time.';
-    case 'network-request-failed': case 'unavailable': return 'No internet connection. Please try again.';
-    case 'invalid-api-key': case 'api-key-not-valid.-please-pass-a-valid-api-key.': return 'App settings (config.js) are wrong. Please contact the school.';
-    default: return `Could not log in (${code}).`;
+      return who === 'p' ? 'That password isn’t correct. Your password is the mobile number registered with the school. If it still doesn’t work, please contact the school office.' : 'That password isn’t correct. Please try again, or contact the office.';
+    case 'user-disabled': return `This account has been blocked. Please contact the ${office}.`;
+    case 'too-many-requests': return 'Too many attempts. Please wait a few minutes and try again.';
+    case 'network-request-failed': case 'unavailable': return 'No internet connection. Please check your network and try again.';
+    case 'invalid-api-key': case 'api-key-not-valid.-please-pass-a-valid-api-key.': return 'The app isn’t set up correctly (config.js). Please contact the school.';
+    default: return `We couldn’t sign you in (${code}). Please try again.`;
   }
 }
 
 export function errorText(e) {
   const s = String((e && (e.code || e.message)) || e);
-  if (s.includes('permission-denied')) return 'You do not have permission to see this. Please log out and log in again.';
-  if (s.includes('unavailable') || s.includes('network') || s.includes('offline')) return 'No internet connection. Pull down to try again.';
-  return 'Something went wrong: ' + s;
+  if (s.includes('permission-denied')) return 'You don’t have access to this. Please sign out and sign in again.';
+  if (s.includes('unavailable') || s.includes('network') || s.includes('offline')) return 'No internet connection. Pull down to refresh once you’re back online.';
+  return 'Something went wrong (' + s + '). Please try again.';
 }
 
 /// Login helpers shared by both apps.
@@ -557,7 +574,7 @@ export function installCard(appName) {
     if (deferred) {
       box.hidden = false;
       box.append(h('div', { class: 'install-ic' }, icon('download')),
-        h('div', { class: 'install-tx' }, h('b', null, 'Install the app'), h('span', null, 'Icon on your home screen, no Play Store needed')),
+        h('div', { class: 'install-tx' }, h('b', null, 'Install Lotus EduNest'), h('span', null, 'Add it to your home screen. Opens instantly, no Play Store needed')),
         btn('tonal', 'Install', async () => { deferred.prompt(); await deferred.userChoice; deferred = null; render(); }));
     } else if (isIOS()) {
       box.hidden = false;
@@ -577,7 +594,7 @@ export function registerSW() {
 }
 
 export function offlineChip() {
-  const chip = h('div', { class: 'offline-chip', hidden: navigator.onLine }, icon('wifi_off'), 'Offline: showing saved data');
+  const chip = h('div', { class: 'offline-chip', hidden: navigator.onLine }, icon('wifi_off'), 'You’re offline. Showing saved data');
   addEventListener('online', () => { chip.hidden = true; });
   addEventListener('offline', () => { chip.hidden = false; });
   return chip;

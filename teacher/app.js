@@ -95,15 +95,15 @@ a.onAuth(async (u) => {
   try {
     const c = await claims(false);
     if (v !== gate) return;
-    if (c.role !== 't') { loginMsg = 'This is not a teacher login.'; await a.signOut(); return; }
+    if (c.role !== 't') { loginMsg = 'This account isn’t a teacher account. Parents, please use the Parent Portal.'; await a.signOut(); return; }
     showHome();   // the password is always the mobile number (school rule): no new-password screen
   } catch { if (v === gate) showHome(); }
 });
 function mount(el) { clear(root).append(el); }
 async function logout(silent) {
   if (!silent) {
-    const ok = await dialog({ icon: 'logout', title: 'Log out?', text: 'You will need your username and password to log in again.',
-      actions: [{ label: 'Cancel', value: false }, { label: 'Logout', value: true, kind: 'filled' }] });
+    const ok = await dialog({ icon: 'logout', title: 'Sign out?', text: 'You’ll need your username and password to sign in again.',
+      actions: [{ label: 'Cancel', value: false }, { label: 'Sign out', value: true, kind: 'filled' }] });
     if (!ok) return;
   }
   await a.signOut();
@@ -120,25 +120,25 @@ function showLogin() {
   const go = async () => {
     const user = fU.input.value.trim().toLowerCase(), pw = fP.input.value;
     showErr(null);
-    if (!user || !pw) return showErr('Enter both username and password');
-    if (user.includes('/')) return showErr('Username is not valid');
+    if (!user || !pw) return showErr('Please enter your username and password.');
+    if (user.includes('/')) return showErr('Please check your username and try again.');
     setBusy(b, true);
     try {
       let idx;
-      try { idx = await a.getServer('tLogin/' + user); } catch { throw new Error('No internet connection. Please try again.'); }
+      try { idx = await a.getServer('tLogin/' + user); } catch { throw new Error('No internet connection. Please check your network and try again.'); }
       const uid = idx.data?.t;
-      if (!idx.exists || !uid) throw new Error('This username was not found. Please check it or contact the office.');
+      if (!idx.exists || !uid) throw new Error('We couldn’t find this username. Please check it, or contact the school office.');
       Prefs.set('lastUser', user);
       try { await a.signIn(`${uid}@${DOMAIN}`, pw); } catch (e) { throw new Error(loginErrorText(e.code, 't')); }
     } catch (e) { showErr(e.message); setBusy(b, false); }
   };
-  const b = btn('filled', 'Login', go, { class: 'btn-big btn-block' });
+  const b = btn('filled', 'Sign in', go, { class: 'btn-big btn-block' });
   if (loginMsg) { showErr(loginMsg); loginMsg = null; }
   mount(h('div', { class: 'page' }, h('div', { class: 'chooser-top' }, themeBtn()), h('div', { class: 'login' },
     h('div', { class: 'login-hero' }, brandMark('co_present'), h('h1', null, CFG.schoolName || 'Teacher Login'),
-      h('div', { class: 'login-kicker' }, 'Lotus EduNest · Teacher Portal'), h('p', null, 'Your EduNest username and password')),
+      h('div', { class: 'login-kicker' }, 'Lotus EduNest · Teacher Portal'), h('p', null, 'Sign in to post homework, enter marks and send class notices.')),
     h('form', { class: 'login-form', onsubmit: (e) => { e.preventDefault(); go(); } }, err, fU, fP, b),
-    h('div', { class: 'login-tip' }, 'Homework and notices you post here show up in the Parent App of your classes right away.'),
+    h('div', { class: 'login-tip' }, 'Homework and notices you post here reach the parents of your classes right away.'),
     demoBanner(), installCard('Lotus Teacher'))));
 }
 
@@ -199,14 +199,14 @@ function tNoticeWallet(n) {
   const kind = n.pin ? 'pin' : n.src === 'class' ? 'cls' : 'sch';
   return h('div', { class: 'ncard ' + kind },
     h('div', { class: 'holo' }),
-    h('div', { class: 'top' }, n.src === 'class' ? 'Class ' + n.secs.map(sectionText).join(', ') : 'School announcement', h('span', null, n.pin ? 'Pinned' : niceDate(n.date))),
+    h('div', { class: 'top' }, n.src === 'class' ? 'Class notice · ' + n.secs.map(sectionText).join(', ') : 'School notice', h('span', null, n.pin ? 'Pinned' : niceDate(n.date))),
     h('div', { class: 'nt' }, n.t || 'Notice'), n.b ? h('div', { class: 'nb' }, n.b) : null,
     h('div', { class: 'bot' }, h('span', null, n.mine ? 'Posted by you' : n.by ? 'From ' + n.by : ''), n.exp ? h('span', null, 'Until ' + shortDate(n.exp)) : null));
 }
 function tNoticeCard(n, onDelete) {
   return h('div', { class: 'notice' + (n.pin ? ' pin' : '') },
     h('div', { class: 'nk' }, n.pin ? h('span', { class: 'src pinned' }, 'Pinned') : null,
-      h('span', { class: 'src' + (n.src === 'class' ? ' cls' : '') }, n.src === 'class' ? 'Class ' + n.secs.map(sectionText).join(', ') : 'School'),
+      h('span', { class: 'src' + (n.src === 'class' ? ' cls' : '') }, n.src === 'class' ? 'Class notice · ' + n.secs.map(sectionText).join(', ') : 'School notice'),
       n.date ? niceDate(n.date) : null),
     h('h3', null, n.t || 'Notice'), n.b ? h('p', null, n.b) : null,
     h('div', { class: 'nf' }, h('span', null, n.mine ? 'Posted by you' : n.by ? 'From ' + n.by : ''),
@@ -267,17 +267,17 @@ function showHome() {
   const main = h('main', { class: 'content' });
   const refBtn = iconBtn('refresh', async () => {
     refBtn.classList.add('spinning');
-    snackbar('Refreshing data...');
+    snackbar('Refreshing…');
     try {
       await load(true);
-      snackbar('App is up to date');
+      snackbar('Everything is up to date');
     } catch {
-      snackbar('Could not update');
+      snackbar('Couldn’t refresh. Please check your internet.');
     } finally {
       refBtn.classList.remove('spinning');
     }
   }, 'Refresh', 'glassy');
-  const bar = topBar({ title: '', actions: [refBtn, themeBtn(), iconBtn('logout', () => logout(), 'Logout', 'glassy')] });
+  const bar = topBar({ title: '', actions: [refBtn, themeBtn(), iconBtn('logout', () => logout(), 'Sign out', 'glassy')] });
   bar.querySelector('.topbar-actions').style.gap = '8px';
   const nav = h('nav', { class: 'navbar', role: 'tablist' });
   const page = h('div', { class: 'page has-nav' }, bar, main, nav);
@@ -307,19 +307,29 @@ function showHome() {
     const title = bar.querySelector('.topbar-title');
     clear(title);
     const t = st.t;
+    const tabName = (TTABS.find((x) => x.id === st.tab) || TTABS[0]).label;
     title.append(h('div', { class: 'app-head' },
-      h('div', { class: 'school-id' }, schoolBadge(), h('div', { class: 'school-txt' }, h('b', null, CFG.appName || 'Lotus EduNest'), h('span', null, 'Teacher Portal · ' + (CFG.schoolName || 'LIS')))),
+      schoolId(),
+      h('div', { class: 'crumb' }, h('span', null, CFG.schoolName || 'School'), icon('chevron_right'), h('b', null, tabName)),
       t ? h('div', { class: 'kid-switch', style: { cursor: 'default' } }, avatarLetter(t.name, 'sm'),
         h('span', { class: 't' }, h('span', { class: 'n' }, t.name.split(/\s+/)[0]), h('span', { class: 'c' }, t.ct ? 'Class ' + t.ct : `${t.sections.length} classes`))) : null));
+  }
+  function schoolId() {
+    return h('div', { class: 'school-id' }, schoolBadge(), h('div', { class: 'school-txt' }, h('b', null, CFG.appName || 'Lotus EduNest'), h('span', null, 'Teacher Portal')));
   }
   function renderNav() {
     clear(nav);
     nav.hidden = !st.t;
+    if (!st.t) return;
+    nav.append(h('div', { class: 'nav-brand' }, schoolId()));
     for (const x of TTABS) {
       const on = x.id === st.tab;
-      nav.append(h('button', { class: 'nav-item', role: 'tab', type: 'button', 'aria-selected': String(on), onclick: () => { if (!on) go(x.id); } },
-        h('span', { class: 'nav-pill' }, icon(on ? x.icon + '-fill' : x.icon)), x.label));
+      nav.append(h('button', { class: 'nav-item', role: 'tab', type: 'button', 'aria-selected': String(on), onclick: () => { if (document.querySelector('.page.pushed')) dropAllLayers(); if (!on) go(x.id); } },
+        h('span', { class: 'nav-pill' }, icon(on ? x.icon + '-fill' : x.icon)), h('span', { class: 'nav-label' }, x.label)));
     }
+    nav.append(h('div', { class: 'nav-foot' },
+      h('div', { class: 'nav-help' }, h('b', null, 'Need help?'), h('span', null, 'If a class or subject is missing, please ask the school office.')),
+      btn('text', 'Sign out', () => logout(), { icon: 'logout', class: 'nav-signout' })));
   }
   const secItem = (t, sec, onclick, extra) => {
     const ct = sec === t.ct, subs = t.allowed(sec).map(t.nameOf).join(', ');
@@ -352,7 +362,7 @@ function showHome() {
     const widget = (onclick, cic, ic, badge, badgeCls, lbl, val, sub, small) => ripple(h('button', { class: 'widget', type: 'button', onclick },
       h('div', { class: 'wtop' }, h('div', { class: 'wicon ' + cic }, icon(ic)), h('span', { class: 'wbadge ' + badgeCls }, badge)),
       h('div', null, h('div', { class: 'wlbl' }, lbl), h('div', { class: 'wval' + (small ? ' sm' : '') }, val), h('div', { class: 'wsub' }, sub))));
-    return h('div', null,
+    return h('div', { class: 'v-thome' },
       h('div', { class: 'greet2' }, h('div', null, h('small', null, todayLong()), h('h1', null, `${greeting()}, ${t.name.split(/\s+/)[0] || 'Teacher'}`))),
       (() => {
         const rank = (n) => (n.pin ? 0 : n.date === istDay(0) ? 1 : 2);
@@ -378,38 +388,38 @@ function showHome() {
           return h('div', null, strip, dots);
         };
         const school = row(sort(ns.filter((n) => n.src !== 'class'))), cls = row(sort(ns.filter((n) => n.src === 'class')));
-        return school || cls ? h('div', null, h('div', { class: 'section-label' }, 'Notices'), school, cls) : null; })(),
+        return school || cls ? h('div', null, h('div', { class: 'section-label' }, 'Notices & announcements'), school, cls) : null; })(),
       h('div', { class: 'wgrid' },
         widget(() => go('hw'), 'c-blue', 'menu_book', posted === null ? '' : `${posted}/${total}`, posted !== null && posted >= total ? 't-green' : 't-blue', 'Homework today',
-          posted === null ? '…' : posted >= total ? 'All posted' : `${total - posted} to post`, 'Tap to post homework', true),
-        widget(() => go('marks'), 'c-indigo', 'edit_note', '', '', 'Exam marks', `${t.sections.filter((sec) => t.allowed(sec).length).length} classes`, 'Enter marks for EduNest', true),
-        widget(() => noticesPage(t), 'c-purple', 'campaign', ns.length ? `${ns.length}` : '', 't-purple', 'Notices', ns.length ? ns[0].t || 'Notice' : 'No notices', 'Tap to see all', true),
+          posted === null ? '…' : posted >= total ? 'All posted' : `${total - posted} to post`, 'Post or update homework', true),
+        widget(() => go('marks'), 'c-indigo', 'edit_note', '', '', 'Exam marks', `${t.sections.filter((sec) => t.allowed(sec).length).length} classes`, 'Enter marks for Mark Entry', true),
+        widget(() => noticesPage(t), 'c-purple', 'campaign', ns.length ? `${ns.length}` : '', 't-purple', 'Notices', ns.length ? ns[0].t || 'Notice' : 'No notices', 'View all notices', true),
         widget(() => sheet((done) => postSheet(t, done)).then((r) => { if (r) { snackbar('Notice posted'); load(true); } }),
           'c-green', 'send', 'New', 't-green', 'Post a notice', 'To my classes', 'Parents see it at once', true)),
 
       h('div', { class: 'section-label' }, 'My classes'),
-      h('div', { class: 'list' }, t.sections.map((sec) => {
+      h('div', { class: 'list cls-grid' }, t.sections.map((sec) => {
         const d = st.today?.get(sec), mine = t.allowed(sec), n = d ? mine.filter((k) => d.items.some((x) => x.key === k)).length : null;
         return secItem(t, sec, () => openSection(t, sec, istDay(0)), n === null ? '' : `homework ${n}/${mine.length}`);
       })));
   }
   function hwTab(t) {
     const date = istDay(st.daysAgo);
-    return h('div', null,
+    return h('div', { class: 'v-thw' },
       h('div', { class: 'greet2' }, h('div', null, h('small', null, 'Post for your classes'), h('h1', null, 'Homework'))),
       h('div', { class: 'section-label', style: { marginTop: '0' } }, 'Homework date'),
       h('div', { class: 'chips daychips', role: 'group', style: { width: 'calc(100% - 32px)', margin: '0 auto' } }, Array.from({ length: EDIT_DAYS_BACK + 1 }, (_, i) => ripple(h('button', {
         class: 'chip', type: 'button', 'aria-pressed': String(st.daysAgo === i), onclick: () => { st.daysAgo = i; render(); },
       }, h('span', null, dayLabel(i)), h('small', null, dayMon(istDay(i))))))),
       h('div', { class: 'section-label' }, niceDate(date)),
-      h('div', { class: 'list' }, t.sections.map((sec) => secItem(t, sec, () => openSection(t, sec, date)))));
+      h('div', { class: 'list cls-grid' }, t.sections.map((sec) => secItem(t, sec, () => openSection(t, sec, date)))));
   }
   function marksTab(t) {
     const secs = t.sections.filter((sec) => t.allowed(sec).length);
-    return h('div', null,
+    return h('div', { class: 'v-tmarks' },
       h('div', { class: 'greet2' }, h('div', null, h('small', null, 'Goes into EduNest Mark Entry'), h('h1', null, 'Exam marks'))),
       h('div', { class: 'section-label', style: { marginTop: '0' } }, 'Enter marks for'),
-      secs.length ? h('div', { class: 'list' }, secs.map((sec) => secItem(t, sec, () => openMarks(t, sec)))) : messageBox('groups', 'No subject is assigned to you.'));
+      secs.length ? h('div', { class: 'list cls-grid' }, secs.map((sec) => secItem(t, sec, () => openMarks(t, sec)))) : messageBox('groups', 'No subject is assigned to you.'));
   }
   function noticesPage(t) {
     const box = h('div', { style: { paddingTop: '8px' } });

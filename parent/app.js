@@ -146,7 +146,7 @@ a.onAuth(async (u) => {
   try {
     const c = await claims(false);
     if (v !== gate) return;
-    if (c.role !== 'p') { loginMsg = 'This is not a parent login.'; await logout(true); return; }
+    if (c.role !== 'p') { loginMsg = 'This account isn’t a parent account. Teachers, please use the Teacher Portal.'; await logout(true); return; }
     showHome();   // the password is always the mobile number (school rule): no new-password screen
   } catch (e) {
     if (v === gate) showHome();
@@ -155,8 +155,8 @@ a.onAuth(async (u) => {
 
 async function logout(silent) {
   if (!silent) {
-    const ok = await dialog({ icon: 'logout', title: 'Log out?', text: 'You will need the Admission No and password to log in again.',
-      actions: [{ label: 'Cancel', value: false }, { label: 'Logout', value: true, kind: 'filled' }] });
+    const ok = await dialog({ icon: 'logout', title: 'Sign out?', text: 'You’ll need your Admission number and password to sign in again.',
+      actions: [{ label: 'Cancel', value: false }, { label: 'Sign out', value: true, kind: 'filled' }] });
     if (!ok) return;
   }
   Prefs.remove('child');
@@ -171,20 +171,20 @@ async function showLogin() {
   const title = h('h1', null, CFG.schoolName || 'Parent Login');
   const err = h('div', { class: 'login-err', role: 'alert', hidden: true });
   const showErr = (m) => { err.hidden = !m; clear(err).append(icon('error'), h('span', null, m || '')); };
-  const fAdm = field({ label: 'Admission No', lead: 'badge', inputmode: 'numeric', pattern: '[0-9]*', autocomplete: 'username', name: 'username', onenter: () => fPw.input.focus() });
-  const fPw = field({ label: 'Password', type: 'password', lead: 'lock', inputmode: 'numeric', pattern: '[0-9]*', autocomplete: 'current-password', name: 'password', onenter: () => go() });
+  const fAdm = field({ label: 'Admission number', lead: 'badge', inputmode: 'numeric', pattern: '[0-9]*', autocomplete: 'username', name: 'username', onenter: () => fPw.input.focus() });
+  const fPw = field({ label: 'Password', helper: 'Your registered mobile number', type: 'password', lead: 'lock', inputmode: 'numeric', pattern: '[0-9]*', autocomplete: 'current-password', name: 'password', onenter: () => go() });
   fAdm.input.value = Prefs.get('lastAdm') || '';
   const go = async () => {
     const adm = fAdm.input.value.trim(), pw = fPw.input.value;
     showErr(null);
-    if (!adm || !pw) return showErr('Enter both the Admission No and password');
-    if (adm.includes('/')) return showErr('Admission No is not valid');
+    if (!adm || !pw) return showErr('Please enter your Admission number and password.');
+    if (adm.includes('/')) return showErr('Please check the Admission number and try again.');
     setBusy(b, true);
     try {
       let idx;
-      try { idx = await a.getServer('loginIndex/' + adm); } catch { throw new Error('No internet connection. Please try again.'); }
+      try { idx = await a.getServer('loginIndex/' + adm); } catch { throw new Error('No internet connection. Please check your network and try again.'); }
       const fam = idx.data?.f;
-      if (!idx.exists || !fam) throw new Error('This Admission No was not found. Please contact the school office.');
+      if (!idx.exists || !fam) throw new Error('We couldn’t find this Admission number. Please check it, or contact the school office.');
       Prefs.set('lastAdm', adm);
       try { await a.signIn(`${fam}@${DOMAIN}`, pw); } catch (e) { throw new Error(loginErrorText(e.code, 'p')); }
     } catch (e) {
@@ -192,13 +192,13 @@ async function showLogin() {
       setBusy(b, false);
     }
   };
-  const b = btn('filled', 'Login', go, { class: 'btn-big btn-block' });
+  const b = btn('filled', 'Sign in', go, { class: 'btn-big btn-block' });
   if (loginMsg) { showErr(loginMsg); loginMsg = null; }
   const page = h('div', { class: 'page' }, h('div', { class: 'chooser-top' }, themeBtn()), h('div', { class: 'login' },
     h('div', { class: 'login-hero' }, brandMark('school-fill'), title, h('div', { class: 'login-kicker' }, 'Lotus EduNest · Parent Portal'),
-      h('p', null, 'Enter your child\'s Admission No and password')),
+      h('p', null, 'Welcome! Sign in to follow your child’s day at school.')),
     h('form', { class: 'login-form', onsubmit: (e) => { e.preventDefault(); go(); } }, err, fAdm, fPw, b),
-    h('div', { class: 'login-tip' }, 'More than one child at school? Use any one child\'s Admission No and all of them will show in the app.'),
+    h('div', { class: 'login-tip' }, 'More than one child at school? Sign in with any one child’s Admission number and all your children will appear.'),
     demoBanner(), installCard('Lotus Parent')));
   mount(page);
   document.title = 'Lotus EduNest · Parent Portal';
@@ -233,17 +233,17 @@ function showHome() {
   const main = h('main', { class: 'content' });
   const refBtn = iconBtn('refresh', async () => {
     refBtn.classList.add('spinning');
-    snackbar('Refreshing data...');
+    snackbar('Refreshing…');
     try {
       await refresh();
-      snackbar('App is up to date');
+      snackbar('Everything is up to date');
     } catch {
-      snackbar('Could not update');
+      snackbar('Couldn’t refresh. Please check your internet.');
     } finally {
       refBtn.classList.remove('spinning');
     }
   }, 'Refresh', 'glassy');
-  const bar = topBar({ title: '', actions: [refBtn, themeBtn(), iconBtn('logout', () => logout(), 'Logout', 'glassy')] });
+  const bar = topBar({ title: '', actions: [refBtn, themeBtn(), iconBtn('logout', () => logout(), 'Sign out', 'glassy')] });
   bar.querySelector('.topbar-actions').style.gap = '8px';
   const nav = h('nav', { class: 'navbar', role: 'tablist' });
   const page = h('div', { class: 'page has-nav' }, bar, main, nav);
@@ -298,23 +298,21 @@ function showHome() {
     const s = kid();
     const title = bar.querySelector('.topbar-title');
     clear(title);
-    if (!s) { title.append(h('div', { class: 'app-head' }, schoolId('Parent Portal'))); return; }
-    const sw = h('button', { class: 'kid-switch', type: 'button', 'aria-label': 'Switch child', onclick: pickKid },
+    const tabName = (TABS.find((t) => t.id === st.tab) || TABS[0]).label;
+    const crumb = h('div', { class: 'crumb' }, h('span', null, CFG.schoolName || 'School'), icon('chevron_right'), h('b', null, tabName));
+    if (!s) { title.append(h('div', { class: 'app-head' }, schoolId('Parent Portal'), crumb)); return; }
+    const sw = h('button', { class: 'kid-switch', type: 'button', 'aria-label': 'Student profile and switch child', onclick: pickKid },
       avatarLetter(s.name, 'sm' + (kidIndex(s.adm) % 2 ? ' g2' : '')), h('span', { class: 't' }, h('span', { class: 'n' }, firstName(s.name) || s.name),
         h('span', { class: 'c' }, `Class ${s.cls}${s.sec ? '-' + s.sec : ''}`)), icon('keyboard_arrow_down'));
-    title.append(h('div', { class: 'app-head' }, schoolId('Parent Portal'), ripple(sw)));
+    title.append(h('div', { class: 'app-head' }, schoolId('Parent Portal'), crumb, ripple(sw)));
   }
   async function pickKid() {
     const cur = kid();
     const adm = await sheet((done) => h('div', { class: 'menu-sheet' },
       cur ? idCard(cur) : null,
-      cur ? h('div', { class: 'card', style: { width: '100%' } }, h('div', { class: 'card-title', style: { color: 'var(--secondary)', marginBottom: '6px' } }, 'Family & Student Details'),
-        h('div', { class: 'kvs' }, [
-          ["Father's Name", cur.father], ["Mother's Name", cur.mother], ['Date of Birth', cur.dob ? shortDate(cur.dob) : ''], ['Admission No', cur.adm],
-          ['Roll No', cur.roll], ['Residential Address', cur.addr], ['Academic Session', cur.session],
-        ].filter(([, v]) => v).map(([k, v]) => h('div', null, h('span', null, k), h('b', null, v))))) : null,
+      cur ? profileCard(cur) : null,
       st.order.length > 1 ? [
-        h('h3', { style: { margin: '6px 4px 12px' } }, 'Switch student'),
+        h('h3', { style: { margin: '6px 4px 12px' } }, 'Switch child'),
         st.order.map((x, i) => {
           const k = st.kids.get(x);
           return ripple(h('button', { class: 'li tap', type: 'button', 'aria-current': String(x === st.sel), onclick: () => done(x) },
@@ -324,17 +322,28 @@ function showHome() {
         })] : null));
     if (adm && adm !== st.sel) { st.sel = adm; Prefs.set('child', adm); render(true); }
   }
+  /// Student details (father, mother, date of birth ...): in the profile sheet, and on the PC dashboard beside the home screen
+  function profileCard(cur) {
+    return h('div', { class: 'card profile-card', style: { width: '100%' } }, h('div', { class: 'card-title', style: { color: 'var(--primary)', marginBottom: '6px' } }, 'Student profile'),
+      h('div', { class: 'kvs' }, [
+        ['Father’s name', cur.father], ['Mother’s name', cur.mother], ['Date of birth', cur.dob ? shortDate(cur.dob) : ''], ['Admission number', cur.adm],
+        ['Roll number', cur.roll], ['Home address', cur.addr], ['Academic session', cur.session],
+      ].filter(([, v]) => v).map(([k, v]) => h('div', null, h('span', null, k), h('b', null, v)))));
+  }
 
   function renderNav() {
     clear(nav);
     if (!kid()) { nav.hidden = true; return; }
     nav.hidden = false;
+    nav.append(h('div', { class: 'nav-brand' }, schoolId('Parent Portal')));
     for (const t of TABS) {
       const on = t.id === st.tab;
-      const badge = false;
-      nav.append(h('button', { class: 'nav-item', role: 'tab', type: 'button', 'aria-selected': String(on), onclick: () => { if (st.tab !== t.id) go(t.id); } },
-        h('span', { class: 'nav-pill' }, icon(on ? t.icon + '-fill' : t.icon), badge ? h('i', { style: { position: 'absolute', top: '2px', right: '10px', width: '7px', height: '7px', borderRadius: '50%', background: 'var(--error)' } }) : null), t.label));
+      nav.append(h('button', { class: 'nav-item', role: 'tab', type: 'button', 'aria-selected': String(on), onclick: () => { if (document.querySelector('.page.pushed')) dropAllLayers(); if (st.tab !== t.id) go(t.id); } },
+        h('span', { class: 'nav-pill' }, icon(on ? t.icon + '-fill' : t.icon)), h('span', { class: 'nav-label' }, t.label)));
     }
+    nav.append(h('div', { class: 'nav-foot' },
+      h('div', { class: 'nav-help' }, h('b', null, 'Need help?'), h('span', null, 'For any question about fees or attendance, please contact the school office.')),
+      btn('text', 'Sign out', () => logout(), { icon: 'logout', class: 'nav-signout' })));
   }
 
   function render(toTop) {
@@ -347,7 +356,7 @@ function showHome() {
     if (st.loading) body = skeleton(4);
     else if (!s) {
       body = messageBox(st.err ? 'wifi_off' : 'person_search',
-        st.err ? errorText(st.err) : 'No child is linked to this login yet. Please contact the school office.', () => { st.loading = true; render(); refresh(); });
+        st.err ? errorText(st.err) : 'No student is linked to this account yet. Please contact the school office.', () => { st.loading = true; render(); refresh(); });
     } else if (st.tab === 'home') body = homeTab(s);
     else if (st.tab === 'fees') body = feesTab(s);
     else if (st.tab === 'att') body = attTab(s);
@@ -365,20 +374,24 @@ function showHome() {
     const widget = (onclick, cic, ic, badge, badgeCls, lbl, val, sub, small) => ripple(h('button', { class: 'widget' + (/wide/.test(cic) ? ' wide' : ''), type: 'button', onclick },
       h('div', { class: 'wtop' }, h('div', { class: 'wicon ' + cic.replace('wide', '') }, icon(ic)), h('span', { class: 'wbadge ' + badgeCls }, badge)),
       h('div', null, h('div', { class: 'wlbl' }, lbl), h('div', { class: 'wval' + (small ? ' sm' : '') }, val), h('div', { class: 'wsub' }, sub))));
-    const markText = { P: 'Today: In', A: 'Today: Absent', L: 'Today: Leave' }[mark] || 'Today: —';
+    const markText = { P: 'Present today', A: 'Absent today', L: 'On leave today' }[mark] || 'Not marked yet';
     const markCls = { P: 't-green', A: 't-red', L: 't-orange' }[mark] || '';
-    return h('div', null,
+    const hwN = hwToday ? hwToday.items.length : 0;
+    return h('div', { class: 'v-home' },
       h('div', { class: 'greet2' }, h('div', null, h('small', null, todayLong()), h('h1', null, `${greeting()}${firstName(s.father) ? ', ' + firstName(s.father) : ''}`))),
-      gatePassCard(s),
-      dayNotices(ns),
-      h('div', { class: 'wgrid' },
-        widget(() => go('att'), 'c-green', 'task_alt', markText, markCls, 'Attendance', s.attS.total ? s.attS.pct.toFixed(1) + '%' : '—',
-          s.attS.total ? `${s.attS.p} Present / ${s.attS.total} Days` : 'Not marked yet'),
-        widget(() => go('fees'), 'c-orange', 'currency_rupee', due ? 'Due' : 'Cleared', due ? 't-orange' : 't-green', 'Outstanding Balance', rupees(s.feeDue),
-          due ? (s.feePeriod || 'Tap to pay') : 'All dues paid'),
-        widget(() => go('hw'), 'c-blue wide', 'menu_book', hwToday ? `${hwToday.items.length} Today` : '', 't-blue', 'Homework',
-          hwToday ? (hwToday.items.length ? hwToday.items.slice(0, 2).map((x) => x.subject).join(' & ') : 'No homework') : 'Loading ...', 'Tap to view assignments', true)),
-      s.upd > 0 ? h('div', { class: 'foot-note' }, 'Last updated by school: ' + dateTimeText(s.upd)) : null);
+      h('div', { class: 'home-main' },
+        gatePassCard(s),
+        dayNotices(ns),
+        h('div', { class: 'section-label wlabel' }, `${firstName(s.name) || 'Your child'} at a glance`),
+        h('div', { class: 'wgrid' },
+          widget(() => go('att'), 'c-green', 'task_alt', markText, markCls, 'Attendance', s.attS.total ? s.attS.pct.toFixed(1) + '%' : '—',
+            s.attS.total ? `${s.attS.p} of ${s.attS.total} days present` : 'Not marked yet'),
+          widget(() => go('fees'), 'c-orange', 'currency_rupee', due ? 'Payment due' : 'All clear', due ? 't-orange' : 't-green', 'Fee balance', rupees(s.feeDue),
+            due ? (s.feePeriod || 'Tap to pay now') : 'No pending dues'),
+          widget(() => go('hw'), 'c-blue wide', 'menu_book', hwN ? `${hwN} today` : '', 't-blue', 'Homework',
+            hwToday ? (hwN ? hwToday.items.slice(0, 2).map((x) => x.subject).join(' & ') : 'None today') : 'Checking…', 'View all homework', true)),
+        s.upd > 0 ? h('div', { class: 'foot-note' }, 'Last synced with the school: ' + dateTimeText(s.upd)) : null),
+      h('aside', { class: 'home-aside' }, idCard(s), profileCard(s)));
   }
 
   function gatePassCard(s) {
@@ -389,9 +402,9 @@ function showHome() {
     return h('div', { class: 'gp-slim' + (out ? '' : ' wait') },
       h('div', { class: 'gp-ic' }, icon(out ? 'directions_walk' : 'hourglass_top')),
       h('div', { class: 'gp-tx' },
-        h('div', { class: 'gp-k' }, out ? 'Left school' : wait ? 'Gate pass · waiting for approval' : 'Gate pass issued', h('span', null, gp.id)),
-        h('div', { class: 'gp-t' }, out ? `Picked up by ${who}` : `${who} is picking up ${firstName(s.name) || s.name}`),
-        h('div', { class: 'gp-s' }, [`Pass ${time12(gp.time)}`, gp.reason].filter(Boolean).join('  ·  '))),
+        h('div', { class: 'gp-k' }, out ? 'Left school' : wait ? 'Gate pass · Awaiting approval' : 'Gate pass approved', h('span', null, gp.id)),
+        h('div', { class: 'gp-t' }, out ? `Picked up by ${who}` : `${who} is coming to pick up ${firstName(s.name) || s.name}`),
+        h('div', { class: 'gp-s' }, [`Pass issued at ${time12(gp.time)}`, gp.reason].filter(Boolean).join('  ·  '))),
       out ? h('div', { class: 'gp-time' }, time12(gp.out)) : null);
   }
 
@@ -402,8 +415,8 @@ function showHome() {
       h('div', { class: 'top' }, CFG.schoolName || 'School', s.session ? h('span', null, s.session) : null),
       h('div', { class: 'mid' }, h('div', { class: 'ph' }, avatarLetter(s.name).textContent),
         h('div', { style: { minWidth: 0 } }, h('div', { class: 'nm' }, s.name), h('div', { class: 'mt' }, `Class ${s.classText}${s.roll ? ' · Roll No ' + s.roll : ''}`),
-          h('div', { class: 'mt' }, 'Admission No: ' + s.adm))),
-      h('div', { class: 'bot' }, h('div', null, h('small', null, 'Date of Birth'), h('b', null, s.dob ? shortDate(s.dob) : '—')), h('div', { class: 'barcode' }, bars))));
+          h('div', { class: 'mt' }, 'Admission no. ' + s.adm))),
+      h('div', { class: 'bot' }, h('div', null, h('small', null, 'Date of birth'), h('b', null, s.dob ? shortDate(s.dob) : '—')), h('div', { class: 'barcode' }, bars))));
   }
 
   // ---------- fees
@@ -411,33 +424,35 @@ function showHome() {
     const due = s.feeDue > 0, link = due ? upiLink(s.upi, s.feeDue) : '';
     const total = s.feePaid + s.feeDue, pct = total ? Math.round((s.feePaid * 100) / total) : 100;
     const pay = due
-      ? (link ? h('a', { class: 'pay-btn', href: link }, icon('wallet'), `Pay Now ${rupees(s.feeDue)}`)
-        : h('div', { class: 'pay-note', style: { marginTop: '14px', fontSize: '12px' } }, 'Online payment is not available for this student yet. Please pay at the school office.'))
-      : h('div', { class: 'pay-btn', 'aria-disabled': 'true' }, icon('check_circle'), 'Nil dues · Account up to date');
-    return h('div', null,
-      h('div', { class: 'greet2' }, h('div', null, h('small', null, s.name), h('h1', null, 'Fees & Accounts'))),
-      h('div', { class: 'paycard' + (due ? '' : ' clear') },
-        h('div', { class: 'chipx' }),
-        h('div', { class: 'lbl' }, due ? 'Fee Due' : 'Total Outstanding Balance'),
-        h('div', { class: 'amt' }, rupees(s.feeDue)),
-        h('div', { class: 'meta' }, due ? (s.feePeriod ? s.feePeriod + (s.feeMonths > 0 ? `  (${s.feeMonths} ${s.feeMonths === 1 ? 'month' : 'months'})` : '') : 'Payment due') : 'All academic dues are settled'),
-        s.feeAsOn ? h('div', { class: 'per' }, 'As on ' + shortDate(s.feeAsOn)) : null,
-        pay,
-      ),
-      h('div', { class: 'card' },
-        h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700 } },
-          h('span', { style: { color: 'var(--on-surface-variant)' } }, `Academic Session ${s.session}`), h('span', { class: 't-green' }, `${pct}% Paid`)),
-        h('div', { class: 'prog' }, h('i', { style: { width: pct + '%' } })),
-        h('div', { class: 'trio' },
-          h('div', null, h('small', null, 'Paid to date'), h('b', { class: 't-green' }, rupees(s.feePaid))),
-          h('div', { style: { textAlign: 'right' } }, h('small', null, 'Balance due'), h('b', { class: 't-orange' }, rupees(s.feeDue))))),
-      h('div', { class: 'section-label' }, 'Official payment receipts'),
-      s.receipts.length
-        ? h('div', { class: 'list' }, s.receipts.map((r) => h('div', { class: 'li' }, h('div', { class: 'li-lead' }, icon('receipt_long')),
-          h('div', { class: 'li-body' }, h('div', { class: 'li-title' }, 'Receipt ' + r.no), h('div', { class: 'li-sub' }, [shortDate(r.date), r.mode].filter(Boolean).join('  ·  '))),
-          h('div', { class: 'amount' }, rupees(r.amt)))))
-        : h('div', { class: 'hw-none' }, icon('receipt_long'), 'No receipts yet'),
-      h('div', { class: 'foot-note' }, 'Fee details come from the school\'s EduNest. If something looks wrong, please contact the school office.'));
+      ? (link ? h('a', { class: 'pay-btn', href: link }, icon('wallet'), `Pay ${rupees(s.feeDue)} now`)
+        : h('div', { class: 'pay-note', style: { marginTop: '14px', fontSize: '12px' } }, 'Online payment isn’t available for this student yet. Please pay at the school office.'))
+      : h('div', { class: 'pay-btn', 'aria-disabled': 'true' }, icon('check_circle'), 'No dues. Your account is up to date');
+    return h('div', { class: 'v-fees' },
+      h('div', { class: 'greet2' }, h('div', null, h('small', null, s.name), h('h1', null, 'Fees & Payments'))),
+      h('div', { class: 'fees-main' },
+        h('div', { class: 'paycard' + (due ? '' : ' clear') },
+          h('div', { class: 'chipx' }),
+          h('div', { class: 'lbl' }, due ? 'Amount due' : 'Total balance'),
+          h('div', { class: 'amt' }, rupees(s.feeDue)),
+          h('div', { class: 'meta' }, due ? (s.feePeriod ? s.feePeriod + (s.feeMonths > 0 ? `  (${s.feeMonths} ${s.feeMonths === 1 ? 'month' : 'months'})` : '') : 'Payment pending') : 'You’re all paid up'),
+          s.feeAsOn ? h('div', { class: 'per' }, 'As of ' + shortDate(s.feeAsOn)) : null,
+          pay,
+        ),
+        h('div', { class: 'card' },
+          h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700 } },
+            h('span', { style: { color: 'var(--on-surface-variant)' } }, s.session ? `Session ${s.session}` : 'This session'), h('span', { class: 't-green' }, `${pct}% paid`)),
+          h('div', { class: 'prog' }, h('i', { style: { width: pct + '%' } })),
+          h('div', { class: 'trio' },
+            h('div', null, h('small', null, 'Paid so far'), h('b', { class: 't-green' }, rupees(s.feePaid))),
+            h('div', { style: { textAlign: 'right' } }, h('small', null, 'Balance'), h('b', { class: 't-orange' }, rupees(s.feeDue)))))),
+      h('div', { class: 'fees-side' },
+        h('div', { class: 'section-label' }, 'Payment receipts'),
+        s.receipts.length
+          ? h('div', { class: 'list' }, s.receipts.map((r) => h('div', { class: 'li' }, h('div', { class: 'li-lead' }, icon('receipt_long')),
+            h('div', { class: 'li-body' }, h('div', { class: 'li-title' }, 'Receipt ' + r.no), h('div', { class: 'li-sub' }, [shortDate(r.date), r.mode].filter(Boolean).join('  ·  '))),
+            h('div', { class: 'amount' }, rupees(r.amt)))))
+          : h('div', { class: 'hw-none' }, icon('receipt_long'), 'No payments recorded yet'),
+        h('div', { class: 'foot-note' }, 'Fee details are synced from the school office. If anything looks incorrect, please contact the school office.')));
   }
 
   // ---------- attendance
@@ -447,39 +462,42 @@ function showHome() {
     const fg = h('circle', { class: 'fg', cx: 56, cy: 56, r: R, 'stroke-dasharray': C, 'stroke-dashoffset': C });
     requestAnimationFrame(() => requestAnimationFrame(() => fg.setAttribute('stroke-dashoffset', C * (1 - c.pct / 100))));
     const segBtn = (id, label) => h('button', { type: 'button', 'aria-pressed': String(st.attView === id), onclick: () => { st.attView = id; render(); } }, label);
-    const stat = (k, label, n) => h('div', { class: 'stat' }, h('span', { class: 'dot ' + k }), label, h('b', null, `${n} ${n === 1 ? 'Day' : 'Days'}`));
+    const stat = (k, label, n) => h('div', { class: 'stat' }, h('span', { class: 'dot ' + k }), label, h('b', null, `${n} ${n === 1 ? 'day' : 'days'}`));
     const streak = streakOf(s);
-    return h('div', null,
+    return h('div', { class: 'v-att' },
       h('div', { class: 'greet2' }, h('div', null, h('small', null, s.name), h('h1', null, 'Attendance'))),
-      h('div', { class: 'seg', role: 'group' }, segBtn('session', `Session${s.session ? ' (' + s.session + ')' : ''}`), segBtn('month', 'This Month')),
-      h('div', { class: 'card' },
-        c.total > 0
-          ? h('div', null,
-            h('div', { class: 'ring-card' },
-              h('div', { class: 'ring' }, h('svg', { viewBox: '0 0 112 112' }, h('circle', { class: 'bg', cx: 56, cy: 56, r: R }), fg),
-                h('div', { class: 'pct' }, h('span', null, c.pct.toFixed(1), h('small', null, '%')))),
-              h('div', { class: 'ring-side' }, stat('P', 'Present', c.p), stat('A', 'Absent', c.a), stat('L', 'Leave', c.l))),
-            streak >= 3 ? h('div', { class: 'streak' }, icon('local_fire_department'), h('div', null, h('b', null, `${streak}-day attendance streak`), h('span', null, 'Present every school day in a row. Keep it up!'))) : null)
-          : h('div', { class: 'hw-none', style: { margin: 0 } }, icon('event_busy'), 'No attendance marked yet')),
-      calendar(s),
-      h('div', { class: 'foot-note' }, 'Attendance comes from the school within a few minutes of being marked.'));
+      h('div', { class: 'seg', role: 'group' }, segBtn('session', 'This session'), segBtn('month', 'This month')),
+      h('div', { class: 'att-cols' },
+        h('div', { class: 'card' },
+          h('div', { class: 'card-title' }, icon('task_alt'), st.attView === 'month' ? 'This month' : `This session${s.session ? ' · ' + s.session : ''}`),
+          c.total > 0
+            ? h('div', null,
+              h('div', { class: 'ring-card' },
+                h('div', { class: 'ring' }, h('svg', { viewBox: '0 0 112 112' }, h('circle', { class: 'bg', cx: 56, cy: 56, r: R }), fg),
+                  h('div', { class: 'pct' }, h('span', null, c.pct.toFixed(1), h('small', null, '%')))),
+                h('div', { class: 'ring-side' }, stat('P', 'Present', c.p), stat('A', 'Absent', c.a), stat('L', 'On leave', c.l))),
+              streak >= 3 ? h('div', { class: 'streak' }, icon('local_fire_department'), h('div', null, h('b', null, `${streak}-day streak`), h('span', null, 'Present on every school day in a row. Keep it up!'))) : null)
+            : h('div', { class: 'hw-none', style: { margin: 0 } }, icon('event_busy'), 'Attendance hasn’t been marked yet')),
+        calendar(s)),
+      h('div', { class: 'foot-note' }, 'Attendance appears here within a few minutes of the school marking it.'));
   }
   function calendar(s) {
     const first = istDay(29), today = istDay(0);
     const lead = (parseYmd(first).getUTCDay() + 6) % 7; // Monday first
+    const word = { P: 'Present', A: 'Absent', L: 'On leave' };
     const cells = ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d) => h('div', { class: 'wd' }, d));
     for (let i = 0; i < lead; i++) cells.push(h('div'));
     for (let i = 29; i >= 0; i--) {
       const d = istDay(i), m = s.attDays[d];
       const k = m === 'P' || m === 'A' || m === 'L' ? m : null;
-      cells.push(h('div', { class: `d ${k || 'none'}${d === today ? ' today' : ''}`, title: `${niceDate(d)}${k ? ': ' + { P: 'Present', A: 'Absent', L: 'Leave' }[k] : ''}`,
-        onclick: () => snackbar(`${niceDate(d)}: ${k ? { P: 'Present', A: 'Absent', L: 'Leave' }[k] : 'Not marked / holiday'}`) },
+      cells.push(h('div', { class: `d ${k || 'none'}${d === today ? ' today' : ''}`, title: `${niceDate(d)}${k ? ': ' + word[k] : ''}`,
+        onclick: () => snackbar(`${niceDate(d)}: ${k ? word[k] : 'No attendance (holiday or not marked)'}`) },
       String(parseYmd(d).getUTCDate()), k ? h('span', { class: 'm' }, k) : null));
     }
     return h('div', { class: 'card' },
       h('div', { class: 'card-title' }, icon('calendar_month'), `Last 30 days  ·  ${dayMon(first)} – ${dayMon(today)}`),
-      Object.keys(s.attDays).length ? h('div', { class: 'cal' }, cells) : h('div', { class: 'hw-none', style: { margin: 0 } }, icon('event_busy'), 'No attendance marked yet'),
-      h('div', { class: 'legend' }, h('span', null, h('i', { class: 'dot P' }), 'Present'), h('span', null, h('i', { class: 'dot A' }), 'Absent'), h('span', null, h('i', { class: 'dot L' }), 'Leave')));
+      Object.keys(s.attDays).length ? h('div', { class: 'cal' }, cells) : h('div', { class: 'hw-none', style: { margin: 0 } }, icon('event_busy'), 'Attendance hasn’t been marked yet'),
+      h('div', { class: 'legend' }, h('span', null, h('i', { class: 'dot P' }), 'Present'), h('span', null, h('i', { class: 'dot A' }), 'Absent'), h('span', null, h('i', { class: 'dot L' }), 'On leave')));
   }
 
   // ---------- homework
@@ -488,12 +506,12 @@ function showHome() {
     const head = h('div', { class: 'greet2' }, h('div', null, h('small', null, `${s.name} · Class ${s.classText}`), h('h1', null, 'Homework')));
     if (!got) {
       loadHw(s.secId, false).then(() => { if (kid() === s && st.tab === 'hw') render(); });
-      return h('div', null, head, skeleton(3));
+      return h('div', { class: 'v-hw' }, head, skeleton(3));
     }
-    if (got.err) return h('div', null, head, messageBox('wifi_off', errorText(got.err), async () => { st.hw.delete(s.secId); render(); }));
-    const out = h('div', null, head);
+    if (got.err) return h('div', { class: 'v-hw' }, head, messageBox('wifi_off', errorText(got.err), async () => { st.hw.delete(s.secId); render(); }));
+    const out = h('div', { class: 'v-hw' }, head);
     got.days.forEach((d, i) => { if (i <= 1 || !d.empty) out.append(dayBlock(d, i === 0 ? 'Today' : i === 1 ? 'Yesterday' : null, s.secId)); });
-    out.append(h('div', { class: 'more-btn' }, btn('outlined', 'Older homework', () => oldHomework(s), { icon: 'history' })));
+    out.append(h('div', { class: 'more-btn' }, btn('outlined', 'Earlier homework', () => oldHomework(s), { icon: 'history' })));
     return out;
   }
 
@@ -504,7 +522,7 @@ function showHome() {
 function noticeCard(n) {
   return h('div', { class: 'notice' + (n.pin ? ' pin' : '') },
     h('div', { class: 'nk' }, n.pin ? h('span', { class: 'src pinned' }, 'Pinned') : null,
-      h('span', { class: 'src' + (n.src === 'class' ? ' cls' : '') }, n.src === 'class' ? 'Class ' + n.secs.join(', ') : 'School'), n.date ? niceDate(n.date) : null),
+      h('span', { class: 'src' + (n.src === 'class' ? ' cls' : '') }, n.src === 'class' ? 'Class notice · ' + n.secs.join(', ') : 'School notice'), n.date ? niceDate(n.date) : null),
     h('h3', null, n.t || 'Notice'), n.b ? h('p', null, n.b) : null,
     h('div', { class: 'nf' }, h('span', null, n.by ? 'From ' + n.by : ''), n.exp ? h('span', null, 'Until ' + shortDate(n.exp)) : null));
 }
@@ -533,32 +551,32 @@ function dayNotices(ns) {
     return h('div', null, strip, dots);
   };
   const school = row(sort(ns.filter((n) => n.src !== 'class'))), cls = row(sort(ns.filter((n) => n.src === 'class')));
-  return school || cls ? h('div', null, h('div', { class: 'section-label' }, 'Notices'), school, cls) : null;
+  return school || cls ? h('div', null, h('div', { class: 'section-label' }, 'Notices & announcements'), school, cls) : null;
 }
 function noticeWallet(n) {
   const kind = n.pin ? 'pin' : n.src === 'class' ? 'cls' : 'sch';
   return h('div', { class: 'ncard ' + kind },
     h('div', { class: 'holo' }),
-    h('div', { class: 'top' }, n.src === 'class' ? 'Class ' + n.secs.join(', ') : 'School announcement', h('span', null, n.pin ? 'Pinned' : niceDate(n.date))),
+    h('div', { class: 'top' }, n.src === 'class' ? 'Class notice · ' + n.secs.join(', ') : 'School notice', h('span', null, n.pin ? 'Pinned' : niceDate(n.date))),
     h('div', { class: 'nt' }, n.t || 'Notice'), n.b ? h('div', { class: 'nb' }, n.b) : null,
     h('div', { class: 'bot' }, h('span', null, n.by ? 'From ' + n.by : CFG.schoolName || ''), n.exp ? h('span', null, 'Until ' + shortDate(n.exp)) : null));
 }
 function allNotices(ns) {
   pushPage('Notices', ns.length ? h('div', { style: { paddingTop: '8px' } }, ns.map(noticeCard))
-    : messageBox('campaign', 'No notices right now. School announcements and messages from the class teacher show here.'));
+    : messageBox('campaign', 'You’re all caught up. School notices and messages from the class teacher will appear here.'));
 }
 
 function dayBlock(d, badge, secId) {
   return h('div', null,
     h('div', { class: 'day-head' }, badge ? h('span', { class: 'badge' }, badge.toUpperCase()) : null, h('b', null, badge ? weekDay(d.date) : niceDate(d.date)),
       badge ? h('span', null, shortDate(d.date)) : null),
-    d.empty ? h('div', { class: 'hw-none' }, icon('auto_stories'), 'No homework') : d.items.map((it) => hwCard(it, `${secId}_${d.date}_${it.key}`)));
+    d.empty ? h('div', { class: 'hw-none' }, icon('auto_stories'), 'No homework for this day') : h('div', { class: 'hw-grid' }, d.items.map((it) => hwCard(it, `${secId}_${d.date}_${it.key}`))));
 }
 function hwCard(it, doneKey) {
   const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return 'Link'; } };
   const done = !!(doneKey && Prefs.get('hwdone:' + doneKey));
   const box = h('div', { class: 'hw' + (done ? ' done' : '') });
-  const tick = doneKey ? h('button', { class: 'hw-done' + (done ? ' on' : ''), type: 'button', 'aria-label': 'Mark as done', title: 'Mark as done (only on this phone)',
+  const tick = doneKey ? h('button', { class: 'hw-done' + (done ? ' on' : ''), type: 'button', 'aria-label': 'Mark as done', title: 'Mark as done (saved on this device only)',
     onclick: () => { const on = !Prefs.get('hwdone:' + doneKey); if (on) Prefs.set('hwdone:' + doneKey, 1); else Prefs.remove('hwdone:' + doneKey); tick.classList.toggle('on', on); box.classList.toggle('done', on); clear(tick); if (on) tick.append(icon('check')); } },
   done ? icon('check') : null) : null;
   box.append(tick || h('span'),
@@ -577,7 +595,7 @@ function oldHomework(s) {
   const list = h('div');
   const foot = h('div', { class: 'more-btn' });
   const sentinel = h('div', { style: { height: '1px' } });
-  const main = pushPage('Older homework', h('div', null, list, foot, sentinel));
+  const main = pushPage('Earlier homework', h('div', null, list, foot, sentinel));
   const bar = main.previousSibling;
   const sub = h('small', null, `${s.name} · Class ${s.classText}`);
   bar.querySelector('.topbar-title').append(sub);
@@ -585,9 +603,9 @@ function oldHomework(s) {
   const footer = (err) => {
     clear(foot);
     if (busy) foot.append(spinner(40));
-    else if (err) foot.append(h('div', { style: { textAlign: 'center' } }, h('p', null, 'Could not load. Check your internet and try again.'), btn('tonal', 'Retry', more, { icon: 'refresh' })));
-    else if (!done()) foot.append(btn('outlined', `Load older (${next}-${Math.min(next + 6, KEEP_DAYS)} days ago)`, more));
-    else foot.append(h('div', { class: 'foot-note' }, shown ? `That's all (homework is kept for ${KEEP_DAYS} days)` : `No other homework in the last ${KEEP_DAYS} days`));
+    else if (err) foot.append(h('div', { style: { textAlign: 'center' } }, h('p', null, 'Couldn’t load. Please check your internet and try again.'), btn('tonal', 'Retry', more, { icon: 'refresh' })));
+    else if (!done()) foot.append(btn('outlined', `Show earlier homework (${next}–${Math.min(next + 6, KEEP_DAYS)} days ago)`, more));
+    else foot.append(h('div', { class: 'foot-note' }, shown ? `You’re all caught up. Homework is kept for ${KEEP_DAYS} days.` : `No homework in the last ${KEEP_DAYS} days.`));
   };
   async function more() {
     if (busy || done()) return;
