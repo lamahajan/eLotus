@@ -73,6 +73,17 @@ const PAL = {
 const kebab = (s) => s.replace(/[A-Z]/g, (m) => '-' + m.toLowerCase());
 export const theme = () => document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
 
+/// 1.9 "Heritage" palette: warm ivory surfaces, ink text, muted status colours and one gold accent. The brand colour (config.js) stays the main colour.
+const LUXE = {
+  surface: '#F7F5F0', onSurface: '#111827', onSurfaceVariant: '#586175', bar: '#F7F5F0', glass: '#F7F5F0',
+  surfaceContainerLowest: '#ffffff', surfaceContainerLow: '#F3F0E9', surfaceContainer: '#EFEBE2', surfaceContainerHigh: '#EAE5DA', surfaceContainerHighest: '#E4DED1',
+  card: '#ffffff', cardSolid: '#ffffff', cardSubtle: '#F3F0E9', spec: '#E4DFD3', outline: '#8B8F9B', outlineVariant: '#E4DFD3',
+  ok: '#2E7D5A', okContainer: '#E3F0E8', onOkContainer: '#1B5039', okDeep: '#1F5F43', okBright: '#4C9C78',
+  warn: '#A8721A', warnContainer: '#FAF0DA', onWarnContainer: '#6E4A0E', warnDeep: '#7A5212', warnBright: '#C8902F',
+  error: '#B3403A', errorContainer: '#F7E3E1', onErrorContainer: '#7A2420',
+  tertiary: '#9C7A33', onTertiary: '#ffffff', tertiaryContainer: '#F4ECD8', onTertiaryContainer: '#5E4A1C', tertiary30: '#6E5520', tertiaryDeep: '#6E5520', tertiaryBright: '#D6B36B',
+  gold: '#B08A3E', goldDeep: '#8B6A27', goldBright: '#D8B56A', goldSoft: '#F5EEDD',
+};
 /// Premium colour scheme made from ONE brand colour (config.js: themeColor = Teacher plum, parentThemeColor = Parent blue).
 /// Every role stays in the brand's own hue family (tinted surfaces, matching secondary, a close-neighbour accent), so a blue app is
 /// really blue everywhere and a plum app is really plum everywhere. Status colours (green / amber / red) stay fixed.
@@ -83,8 +94,8 @@ export function scheme(hex) {
     const seed = F.argbFromHex(brand), hct = F.Hct.fromInt(seed), hue = hct.hue;
     const tp = (h2, c) => F.TonalPalette.fromHueAndChroma(((h2 % 360) + 360) % 360, c);
     const t = (p, n) => F.hexFromArgb(p.tone(n));
-    const P = tp(hue, Math.max(hct.chroma, 48));                              // brand
-    const S = tp(hue, 20);                                                      // quiet partner of the same hue
+    const P = tp(hue, Math.min(40, Math.max(hct.chroma, 24)));                              // brand
+    const S = tp(hue, 14);                                                      // quiet partner of the same hue
     const T = tp(hue + (hue > 200 && hue < 300 ? -32 : 30), 38);                // close-neighbour accent (cyan next to blue, rose next to plum)
     const N = tp(hue, 4), NV = tp(hue, 9), E = tp(25, 84);
     const G = tp(145, 46), W = tp(62, 56);
@@ -103,6 +114,7 @@ export function scheme(hex) {
       primary30: t(P, Math.max(10, bt - 9)), primary50: t(P, Math.min(58, bt + 14)),
       secondary30: t(S, 30), tertiary30: t(T, 28), tertiaryBright: t(T, 46), tertiaryDeep: t(T, 28), warnDeep: t(W, 34), warnBright: t(W, 52),
       okDeep: t(G, 30), okBright: t(G, 44) };
+    v = { ...v, ...LUXE };                                                       // 1.9: heritage palette (ivory surfaces, muted status colours, gold accent) on top of the brand colour
   } catch (e) { /* colour library missing: the fixed light palette is used */ }
   v.brand = brand;
   return v;

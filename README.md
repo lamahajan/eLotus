@@ -7,6 +7,11 @@ Two web apps for the school, connected to **EduNest** through Firebase:
 | **Parent App** (`/parent/`) | Parents | Dashboard (today's gate pass, attendance, fee due, homework, notices, student card), fees with **Pay Now (UPI)**, attendance, homework, notices |
 | **Teacher App** (`/teacher/`) | Teachers | Post homework, **enter exam marks** (they go into EduNest Mark Entry), **post notices to their own classes** |
 
+### New in web apps 1.9 "Heritage" design
+- New premium look for both apps: ivory background, deep navy (Parent) / plum (Teacher) with one gold accent, serif headings and amounts (Fraunces), Inter for text, thin borders, calm shadows, flat bottom bar on phones and a navy sidebar on PC.
+- Colours still come from ONE line in `config.js` (`parentThemeColor`, `themeColor`). Navy is `#0E2A4D`; for another look change only that value (e.g. deep green `#0F3D2E`, maroon `#5A1020`).
+- New files: `assets/luxe.css` (the design layer), `assets/fonts/inter.woff2`, `assets/fonts/fraunces.woff2`. Upload them with everything else. Nothing else changes: data, login and Firebase work exactly as before.
+
 ### New in web apps 1.6 / EduNest 1.0.53
 - **Publish the new `firestore.rules` once** (Firebase > Firestore Database > Rules > paste > Publish). Without it notices do not show.
 - **Gate pass**: who picked the child up and at what time (and when the child left through the gate) shows on the parent's dashboard within seconds.
