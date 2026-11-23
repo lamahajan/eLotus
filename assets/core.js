@@ -367,7 +367,7 @@ export function loginErrorText(code, who) {
   const office = who === 'p' ? 'school office' : 'office';
   switch (code) {
     case 'wrong-password': case 'invalid-credential': case 'invalid-login-credentials': case 'user-not-found':
-      return who === 'p' ? 'That password isn’t correct. Your password is the mobile number registered with the school. If it still doesn’t work, please contact the school office.' : 'That password isn’t correct. Please try again, or contact the office.';
+      return 'That password isn’t correct. Please try again, or contact the office.';
     case 'user-disabled': return `This account has been blocked. Please contact the ${office}.`;
     case 'too-many-requests': return 'Too many attempts. Please wait a few minutes and try again.';
     case 'network-request-failed': case 'unavailable': return 'No internet connection. Please check your network and try again.';
