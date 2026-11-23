@@ -439,11 +439,9 @@ function showHome() {
       else sessionFee = s.feePaid + s.feeDue;
     }
 
-    if (sessionBal === undefined || sessionBal === null || (sessionBal === 0 && sessionFee > s.feePaid && s.feeDue === 0)) {
-      sessionBal = Math.max(0, sessionFee - s.feePaid);
-    }
-    if (sessionBal === 0 && s.feeDue > 0) {
-      sessionBal = s.feeDue;
+    if (!sessionBal || sessionBal <= 0) {
+      if (sessionFee > s.feePaid) sessionBal = sessionFee - s.feePaid;
+      else sessionBal = s.feeDue;
     }
 
     return { sessionBal, sessionFee, monthlyRate };
@@ -594,13 +592,11 @@ function showHome() {
         : h('div', { class: 'pay-note', style: { marginTop: '14px', fontSize: '12px' } },
             'Online payment isn’t available for this student yet. Please pay at the school office.');
     } else if (canPayAdvance) {
-      payAction = s.upi
-        ? h('button', {
-            type: 'button',
-            class: 'pay-btn',
-            onclick: () => openAdvanceSheet(s, sessionBal, monthlyRate),
-          }, icon('payments'), 'Pay in advance')
-        : h('div', { class: 'pay-btn', 'aria-disabled': 'true' }, icon('check_circle'), 'No pending dues');
+      payAction = h('button', {
+        type: 'button',
+        class: 'pay-btn',
+        onclick: () => openAdvanceSheet(s, sessionBal, monthlyRate),
+      }, icon('payments'), 'Pay in advance');
     } else {
       payAction = h('div', { class: 'pay-btn', 'aria-disabled': 'true' }, icon('check_circle'), 'All dues cleared for this session');
     }

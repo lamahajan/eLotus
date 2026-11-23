@@ -41,6 +41,7 @@ function seed() {
       name: 'Diya Sharma', cls: '2ND', sec: 'B', secId: '2ND-B', roll: '7', dob: '2019-02-03', father: 'Rakesh Sharma', mother: 'Neha Sharma',
       gender: 'F', addr: 'H.No. 221, Model Town, Ludhiana', session: '2026-27',
       fee: { due: 0, months: 0, period: '', paid: 29400, asOn: istDay(0), rc: [{ no: '2026/0919', date: istDay(52), amt: 9800, mode: 'UPI' }] },
+      pay: { upi: 'upi://pay?pa=lotus.international@icici&pn=Lotus+International+School&am=0' },
       att: { s: { P: 124, A: 3, L: 0 }, m: { P: 14, A: 1, L: 0 }, mon, d: a2.d }, upd: Date.now() - 3 * 3600e3,
     },
     'notices/board': { list: [
