@@ -102,7 +102,7 @@ function toStudent(adm, d) {
   return {
     adm, name: S(d, 'name'), cls: S(d, 'cls'), sec: S(d, 'sec'), secId: S(d, 'secId'), roll: S(d, 'roll'), dob: S(d, 'dob'),
     father: S(d, 'father'), mother: S(d, 'mother'), gender: S(d, 'gender'), addr: S(d, 'addr'), session: S(d, 'session'),
-    feeDue: I(fee, 'due'), feeMonths: I(fee, 'months'), feePaid: I(fee, 'paid'), feePeriod: S(fee, 'period'), feeAsOn: S(fee, 'asOn'),
+    feeDue: I(fee, 'due'), feeMonths: I(fee, 'months'), feePaid: I(fee, 'paid'), feeBal: I(fee, 'bal'), feeSession: I(fee, 'sessionFee'), feePeriod: S(fee, 'period'), feeAsOn: S(fee, 'asOn'),
     receipts: (Array.isArray(fee.rc) ? fee.rc : []).filter((r) => r && typeof r === 'object').map((r) => ({ no: S(r, 'no'), date: S(r, 'date'), amt: I(r, 'amt'), mode: S(r, 'mode') })),
     attS: counts(att.s), attM: counts(att.m), attMon: S(att, 'mon'),
     attDays: Object.fromEntries(Object.entries(att.d && typeof att.d === 'object' ? att.d : {}).map(([k, v]) => [k, String(v)])),
@@ -419,32 +419,217 @@ function showHome() {
       h('div', { class: 'bot' }, h('div', null, h('small', null, 'Date of birth'), h('b', null, s.dob ? shortDate(s.dob) : '—')), h('div', { class: 'barcode' }, bars))));
   }
 
-  // ---------- fees
+  // ---------- fees & advance payments
+  function sessionFeeInfo(s) {
+    let sessionBal = s.feeBal;
+    let sessionFee = s.feeSession;
+
+    // Monthly installment rate deduction
+    let monthlyRate = 0;
+    if (s.receipts && s.receipts.length) {
+      const validAmts = s.receipts.map((r) => r.amt).filter((a) => a > 0);
+      if (validAmts.length) monthlyRate = Math.min(...validAmts);
+    }
+    if (!monthlyRate && s.feeDue > 0 && s.feeMonths > 0) {
+      monthlyRate = Math.round(s.feeDue / s.feeMonths);
+    }
+
+    if (!sessionFee || sessionFee <= 0) {
+      if (monthlyRate > 0) sessionFee = monthlyRate * 12;
+      else sessionFee = s.feePaid + s.feeDue;
+    }
+
+    if (sessionBal === undefined || sessionBal === null || (sessionBal === 0 && sessionFee > s.feePaid && s.feeDue === 0)) {
+      sessionBal = Math.max(0, sessionFee - s.feePaid);
+    }
+    if (sessionBal === 0 && s.feeDue > 0) {
+      sessionBal = s.feeDue;
+    }
+
+    return { sessionBal, sessionFee, monthlyRate };
+  }
+
+  function openAdvanceSheet(s, sessionBal, monthlyRate) {
+    sheet((done) => {
+      let chosenAmt = Math.min(monthlyRate || 2750, sessionBal);
+      if (chosenAmt <= 0) chosenAmt = sessionBal;
+
+      const title = h('h3', { style: { margin: '4px 0 2px', fontSize: '18px', fontWeight: 800 } }, 'Pay in Advance');
+      const sub = h('div', { style: { fontSize: '12px', color: 'var(--on-surface-variant)', marginBottom: '14px' } },
+        `${s.name} · ${s.classText ? 'Class ' + s.classText : ''} · Session ${s.session || '2026-2027'}`);
+
+      // Summary Card
+      const summary = h('div', { style: { background: 'var(--card-subtle)', borderRadius: '16px', padding: '12px 14px', marginBottom: '16px', border: '1px solid var(--outline-variant)' } },
+        h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' } },
+          h('span', { style: { color: 'var(--on-surface-variant)' } }, 'Fee paid so far'),
+          h('b', { class: 't-green' }, rupees(s.feePaid))),
+        h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' } },
+          h('span', { style: { color: 'var(--on-surface-variant)' } }, 'Remaining session fee (Max Cap)'),
+          h('b', { class: 't-orange', style: { fontSize: '13px' } }, rupees(sessionBal))),
+        h('div', { style: { fontSize: '11px', color: 'var(--on-surface-variant)', marginTop: '6px', borderTop: '1px dashed var(--outline-variant)', paddingTop: '6px' } },
+          'Advance payments are automatically credited towards upcoming months in the school ledger.'));
+
+      // Chips
+      const chipsRow = h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' } });
+
+      const setAmount = (amt) => {
+        const capped = Math.max(1, Math.min(amt, sessionBal));
+        chosenAmt = capped;
+        amtField.input.value = capped;
+        updatePayBtn();
+        chipsRow.querySelectorAll('.advance-chip').forEach((c) => {
+          c.classList.toggle('active', Number(c.dataset.amt) === capped);
+        });
+      };
+
+      const makeChip = (label, amt) => {
+        if (amt > sessionBal && amt !== sessionBal) return null;
+        const c = h('button', {
+          type: 'button',
+          class: 'advance-chip' + (amt === chosenAmt ? ' active' : ''),
+          'data-amt': amt,
+          onclick: () => setAmount(amt),
+        }, label);
+        return c;
+      };
+
+      if (monthlyRate > 0) {
+        if (monthlyRate <= sessionBal) chipsRow.append(makeChip(`1 Month (${rupees(monthlyRate)})`, monthlyRate));
+        if (monthlyRate * 2 <= sessionBal) chipsRow.append(makeChip(`2 Months (${rupees(monthlyRate * 2)})`, monthlyRate * 2));
+        if (monthlyRate * 3 <= sessionBal) chipsRow.append(makeChip(`3 Months (${rupees(monthlyRate * 3)})`, monthlyRate * 3));
+      }
+      chipsRow.append(makeChip(`Full Session (${rupees(sessionBal)})`, sessionBal));
+
+      // Amount input field
+      const amtField = field({
+        label: `Advance amount (Max ${rupees(sessionBal)})`,
+        type: 'number',
+        value: chosenAmt,
+        lead: 'currency_rupee',
+        inputmode: 'numeric',
+        helper: `Enter between ₹1 and ${rupees(sessionBal)}`,
+      });
+
+      const helperEl = amtField.querySelector('.tf-help');
+
+      amtField.input.addEventListener('input', () => {
+        let val = Number(amtField.input.value);
+        if (val > sessionBal) {
+          amtField.input.value = sessionBal;
+          val = sessionBal;
+          if (helperEl) {
+            helperEl.textContent = `Amount capped at session balance (${rupees(sessionBal)})`;
+            helperEl.style.color = 'var(--warn)';
+          }
+        } else if (helperEl) {
+          helperEl.textContent = `Enter between ₹1 and ${rupees(sessionBal)}`;
+          helperEl.style.color = '';
+        }
+        chosenAmt = val;
+        updatePayBtn();
+        chipsRow.querySelectorAll('.advance-chip').forEach((c) => {
+          c.classList.toggle('active', Number(c.dataset.amt) === val);
+        });
+      });
+
+      // Pay Button container
+      const payContainer = h('div', { style: { marginTop: '16px' } });
+
+      const updatePayBtn = () => {
+        payContainer.innerHTML = '';
+        if (chosenAmt <= 0) {
+          payContainer.append(h('div', { class: 'pay-btn', 'aria-disabled': 'true' }, 'Enter a valid amount'));
+          return;
+        }
+        const link = upiLink(s.upi, chosenAmt);
+        if (!link) {
+          payContainer.append(h('div', { class: 'pay-note', style: { color: 'var(--warn)' } },
+            'Online payment link is not configured for this student. Please contact the school office.'));
+          return;
+        }
+        const btnEl = h('a', {
+          class: 'pay-btn',
+          href: link,
+          onclick: () => setTimeout(() => done(true), 1200),
+        }, icon('wallet'), `Pay ${rupees(chosenAmt)} via UPI`);
+        payContainer.append(btnEl);
+      };
+
+      updatePayBtn();
+
+      return h('div', { class: 'menu-sheet', style: { padding: '4px 0 12px' } },
+        title, sub, summary,
+        h('div', { style: { fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '8px' } }, 'Quick options'),
+        chipsRow,
+        amtField,
+        payContainer,
+        h('div', { class: 'pay-note', style: { marginTop: '10px' } },
+          'Opens Google Pay, PhonePe, Paytm, or your default UPI payment app.')
+      );
+    });
+  }
+
   function feesTab(s) {
-    const due = s.feeDue > 0, link = due ? upiLink(s.upi, s.feeDue) : '';
-    const total = s.feePaid + s.feeDue, pct = total ? Math.round((s.feePaid * 100) / total) : 100;
-    const pay = due
-      ? (link ? h('a', { class: 'pay-btn', href: link }, icon('wallet'), `Pay ${rupees(s.feeDue)} now`)
-        : h('div', { class: 'pay-note', style: { marginTop: '14px', fontSize: '12px' } }, 'Online payment isn’t available for this student yet. Please pay at the school office.'))
-      : h('div', { class: 'pay-btn', 'aria-disabled': 'true' }, icon('check_circle'), 'No dues. Your account is up to date');
+    const { sessionBal, sessionFee, monthlyRate } = sessionFeeInfo(s);
+    const due = s.feeDue > 0;
+    const canPayAdvance = !due && sessionBal > 0;
+    const fullyPaid = !due && sessionBal <= 0;
+
+    const total = sessionFee > 0 ? sessionFee : (s.feePaid + (sessionBal > 0 ? sessionBal : s.feeDue));
+    const pct = total > 0 ? Math.min(100, Math.round((s.feePaid * 100) / total)) : 100;
+
+    let payAction;
+    if (due) {
+      const link = upiLink(s.upi, s.feeDue);
+      payAction = link
+        ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '14px' } },
+            h('a', { class: 'pay-btn', href: link }, icon('wallet'), `Pay ${rupees(s.feeDue)} now`),
+            sessionBal > s.feeDue
+              ? h('button', {
+                  type: 'button',
+                  class: 'pay-advance-link',
+                  onclick: () => openAdvanceSheet(s, sessionBal, monthlyRate),
+                }, icon('add_circle'), 'Or pay upcoming months in advance')
+              : null)
+        : h('div', { class: 'pay-note', style: { marginTop: '14px', fontSize: '12px' } },
+            'Online payment isn’t available for this student yet. Please pay at the school office.');
+    } else if (canPayAdvance) {
+      payAction = s.upi
+        ? h('button', {
+            type: 'button',
+            class: 'pay-btn',
+            onclick: () => openAdvanceSheet(s, sessionBal, monthlyRate),
+          }, icon('payments'), 'Pay in advance')
+        : h('div', { class: 'pay-btn', 'aria-disabled': 'true' }, icon('check_circle'), 'No pending dues');
+    } else {
+      payAction = h('div', { class: 'pay-btn', 'aria-disabled': 'true' }, icon('check_circle'), 'All dues cleared for this session');
+    }
+
     return h('div', { class: 'v-fees' },
       h('div', { class: 'greet2' }, h('div', null, h('small', null, s.name), h('h1', null, 'Fees & Payments'))),
       h('div', { class: 'fees-main' },
         h('div', { class: 'paycard' + (due ? '' : ' clear') },
           h('div', { class: 'chipx' }),
-          h('div', { class: 'lbl' }, due ? 'Amount due' : 'Total balance'),
-          h('div', { class: 'amt' }, rupees(s.feeDue)),
-          h('div', { class: 'meta' }, due ? (s.feePeriod ? s.feePeriod + (s.feeMonths > 0 ? `  (${s.feeMonths} ${s.feeMonths === 1 ? 'month' : 'months'})` : '') : 'Payment pending') : 'You’re all paid up'),
+          h('div', { class: 'lbl' }, due ? 'Amount due' : (canPayAdvance ? 'Current due' : 'Session fee')),
+          h('div', { class: 'amt' }, rupees(due ? s.feeDue : 0)),
+          h('div', { class: 'meta' },
+            due
+              ? (s.feePeriod ? s.feePeriod + (s.feeMonths > 0 ? `  (${s.feeMonths} ${s.feeMonths === 1 ? 'month' : 'months'})` : '') : 'Payment pending')
+              : (canPayAdvance
+                  ? `All dues cleared up to this month · ${rupees(sessionBal)} remaining for session`
+                  : 'You’re all paid up for the session')),
           s.feeAsOn ? h('div', { class: 'per' }, 'As of ' + shortDate(s.feeAsOn)) : null,
-          pay,
+          payAction,
         ),
         h('div', { class: 'card' },
           h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700 } },
-            h('span', { style: { color: 'var(--on-surface-variant)' } }, s.session ? `Session ${s.session}` : 'This session'), h('span', { class: 't-green' }, `${pct}% paid`)),
+            h('span', { style: { color: 'var(--on-surface-variant)' } }, s.session ? `Session ${s.session}` : 'This session'),
+            h('span', { class: pct >= 100 ? 't-green' : 't-blue' }, `${pct}% paid`)),
           h('div', { class: 'prog' }, h('i', { style: { width: pct + '%' } })),
           h('div', { class: 'trio' },
             h('div', null, h('small', null, 'Paid so far'), h('b', { class: 't-green' }, rupees(s.feePaid))),
-            h('div', { style: { textAlign: 'right' } }, h('small', null, 'Balance'), h('b', { class: 't-orange' }, rupees(s.feeDue)))))),
+            h('div', { style: { textAlign: 'center' } }, h('small', null, 'Session fee'), h('b', null, rupees(total))),
+            h('div', { style: { textAlign: 'right' } }, h('small', null, 'Balance'), h('b', { class: sessionBal > 0 ? 't-orange' : 't-green' }, rupees(sessionBal)))))),
       h('div', { class: 'fees-side' },
         h('div', { class: 'section-label' }, 'Payment receipts'),
         s.receipts.length
