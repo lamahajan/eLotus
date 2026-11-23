@@ -1,8 +1,8 @@
 // Lotus EduNest web apps: offline support. Change VERSION on every release so browsers/PWAs pick up the new files.
-const VERSION = 'edunest-web-1.9.0';
+const VERSION = 'edunest-web-1.8.2';
 const SHELL = [
   './', 'index.html', 'config.js',
-  'assets/app.css', 'assets/premium.css', 'assets/luxe.css', 'assets/fonts/inter.woff2', 'assets/fonts/fraunces.woff2', 'assets/core.js', 'assets/lib.js', 'assets/icons.js', 'assets/demo.js', 'assets/fonts/gsf.woff2',
+  'assets/app.css', 'assets/premium.css', 'assets/core.js', 'assets/lib.js', 'assets/icons.js', 'assets/demo.js', 'assets/fonts/gsf.woff2',
   'parent/', 'parent/index.html', 'parent/app.js', 'parent/manifest.webmanifest',
   'teacher/', 'teacher/index.html', 'teacher/app.js', 'teacher/manifest.webmanifest',
   'icons/parent-192.png', 'icons/teacher-192.png', 'icons/parent-180.png', 'icons/teacher-180.png', 'icons/parent-favicon-32.png', 'icons/teacher-favicon-32.png', 'icons/parent-favicon-96.png', 'icons/teacher-favicon-96.png', 'icons/parent-96.png', 'icons/teacher-96.png', 'icons/edunest.svg',

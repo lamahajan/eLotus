@@ -73,17 +73,6 @@ const PAL = {
 const kebab = (s) => s.replace(/[A-Z]/g, (m) => '-' + m.toLowerCase());
 export const theme = () => document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
 
-/// 1.9 "Heritage" palette: warm ivory surfaces, ink text, muted status colours and one gold accent. The brand colour (config.js) stays the main colour.
-const LUXE = {
-  surface: '#F7F5F0', onSurface: '#111827', onSurfaceVariant: '#586175', bar: '#F7F5F0', glass: '#F7F5F0',
-  surfaceContainerLowest: '#ffffff', surfaceContainerLow: '#F3F0E9', surfaceContainer: '#EFEBE2', surfaceContainerHigh: '#EAE5DA', surfaceContainerHighest: '#E4DED1',
-  card: '#ffffff', cardSolid: '#ffffff', cardSubtle: '#F3F0E9', spec: '#E4DFD3', outline: '#8B8F9B', outlineVariant: '#E4DFD3',
-  ok: '#2E7D5A', okContainer: '#E3F0E8', onOkContainer: '#1B5039', okDeep: '#1F5F43', okBright: '#4C9C78',
-  warn: '#A8721A', warnContainer: '#FAF0DA', onWarnContainer: '#6E4A0E', warnDeep: '#7A5212', warnBright: '#C8902F',
-  error: '#B3403A', errorContainer: '#F7E3E1', onErrorContainer: '#7A2420',
-  tertiary: '#9C7A33', onTertiary: '#ffffff', tertiaryContainer: '#F4ECD8', onTertiaryContainer: '#5E4A1C', tertiary30: '#6E5520', tertiaryDeep: '#6E5520', tertiaryBright: '#D6B36B',
-  gold: '#B08A3E', goldDeep: '#8B6A27', goldBright: '#D8B56A', goldSoft: '#F5EEDD',
-};
 /// Premium colour scheme made from ONE brand colour (config.js: themeColor = Teacher plum, parentThemeColor = Parent blue).
 /// Every role stays in the brand's own hue family (tinted surfaces, matching secondary, a close-neighbour accent), so a blue app is
 /// really blue everywhere and a plum app is really plum everywhere. Status colours (green / amber / red) stay fixed.
@@ -94,8 +83,8 @@ export function scheme(hex) {
     const seed = F.argbFromHex(brand), hct = F.Hct.fromInt(seed), hue = hct.hue;
     const tp = (h2, c) => F.TonalPalette.fromHueAndChroma(((h2 % 360) + 360) % 360, c);
     const t = (p, n) => F.hexFromArgb(p.tone(n));
-    const P = tp(hue, Math.min(40, Math.max(hct.chroma, 24)));                              // brand
-    const S = tp(hue, 14);                                                      // quiet partner of the same hue
+    const P = tp(hue, Math.max(hct.chroma, 48));                              // brand
+    const S = tp(hue, 20);                                                      // quiet partner of the same hue
     const T = tp(hue + (hue > 200 && hue < 300 ? -32 : 30), 38);                // close-neighbour accent (cyan next to blue, rose next to plum)
     const N = tp(hue, 4), NV = tp(hue, 9), E = tp(25, 84);
     const G = tp(145, 46), W = tp(62, 56);
@@ -114,7 +103,6 @@ export function scheme(hex) {
       primary30: t(P, Math.max(10, bt - 9)), primary50: t(P, Math.min(58, bt + 14)),
       secondary30: t(S, 30), tertiary30: t(T, 28), tertiaryBright: t(T, 46), tertiaryDeep: t(T, 28), warnDeep: t(W, 34), warnBright: t(W, 52),
       okDeep: t(G, 30), okBright: t(G, 44) };
-    v = { ...v, ...LUXE };                                                       // 1.9: heritage palette (ivory surfaces, muted status colours, gold accent) on top of the brand colour
   } catch (e) { /* colour library missing: the fixed light palette is used */ }
   v.brand = brand;
   return v;
@@ -202,8 +190,8 @@ export function dateTimeText(ms) {
 export class AppError extends Error { constructor(code, msg) { super(msg || code); this.code = code; } }
 const snap = (s) => ({ exists: s.exists(), data: s.exists() ? s.data() : null, fromCache: s.metadata.fromCache });
 
-function firebaseApi() {
-  const app = F.initializeApp(CFG.firebase);
+function firebaseApi(cfg = CFG.firebase, name) {
+  const app = name ? F.initializeApp(cfg, name) : F.initializeApp(cfg);
   const auth = F.initializeAuth(app, { persistence: [F.indexedDBLocalPersistence, F.browserLocalPersistence] });
   let db;
   try {
@@ -239,10 +227,117 @@ function firebaseApi() {
   };
 }
 
+
+// ------------------------------------------------------------------ several Firebase projects (class-wise / section-wise, EduNest 1.0.63)
+// config.js: firebase = the MAIN project, firebaseMore = [{ name, firebase: {...} }] = the other projects. Every class / section lives in ONE project.
+// The apps see one api: login goes to every project (the login id and password are the same in all of them), a student / section document is read from the project
+// of that student / section (learned from the login claims), the notice boards and the teacher's own document are merged from all projects.
+function multiApi() {
+  const more = (Array.isArray(CFG.firebaseMore) ? CFG.firebaseMore : []).filter((x) => x && x.firebase && x.firebase.apiKey);
+  const first = firebaseApi();
+  if (!more.length) return first;
+  const list = [first, ...more.map((x, i) => firebaseApi(x.firebase, 'p' + (i + 2)))];
+  const route = { adm: new Map(), sec: new Map() };       // admission no / section id -> index in list
+  const live = () => list.map((p, i) => [p, i]).filter(([p]) => p.user());
+  const primary = () => { const l = live(); return l.length ? l[0][0].user() : null; };
+  const RT = [[/^students\/(.+)$/, 'adm'], [/^homework\/(.+)_\d{4}-\d{2}-\d{2}$/, 'sec'], [/^marks\/([^~/]+)~/, 'sec'], [/^(?:tnotice|mkcfg)\/(.+)$/, 'sec']];
+  const pick = (path) => { for (const [re, kind] of RT) { const m = re.exec(path); if (m) return [kind, m[1], route[kind].get(m[1])]; } return null; };
+  const learn = async (refresh) => {
+    for (const [p, i] of live()) {
+      try { const c = (await p.claims(!!refresh)) || {}; (Array.isArray(c.a) ? c.a : []).forEach((x) => route.adm.set(String(x), i)); (Array.isArray(c.s) ? c.s : []).forEach((x) => route.sec.set(String(x), i)); } catch { /* offline: the old list stays */ }
+    }
+  };
+  // a document that exists in only one project: ask the project that is known to hold it, else all of them (the first that has it wins; remembered)
+  const readOne = async (kind, path) => {
+    const r = pick(path);
+    if (r && r[2] !== undefined) return list[r[2]][kind](path);
+    let seen = null, err = null;
+    for (const [p, i] of live()) {
+      try { const x = await p[kind](path); if (x.exists) { if (r) route[r[0]].set(r[1], i); return x; } seen = seen || x; } catch (e) { err = e; }
+    }
+    if (seen) return seen;
+    throw err || new AppError('unavailable', 'Not signed in');
+  };
+  // loginIndex / tLogin: no login yet, so every project is asked at the same time
+  const readAll = async (kind, path) => {
+    const res = await Promise.allSettled(list.map((p) => p[kind](path)));
+    const ok = res.filter((x) => x.status === 'fulfilled').map((x) => x.value);
+    if (!ok.length) throw res[0].reason;
+    return ok.find((x) => x.exists) || ok[0];
+  };
+  // documents with the same name in every project whose content is added together
+  const mergeDocs = async (kind, path, merge) => {
+    const got = []; let answered = 0, err = null;
+    for (const [p, i] of live()) { try { const x = await p[kind](path); answered++; if (x.exists) got.push({ i, x }); } catch (e) { err = e; /* offline / not in cache */ } }
+    if (!answered) throw err || new AppError('unavailable', 'Not signed in');   // nobody answered: the caller uses its saved copy (offline)
+    if (!got.length) return { exists: false, data: null, fromCache: false };
+    return { exists: true, data: merge(got), fromCache: got.every((g) => g.x.fromCache) };
+  };
+  const mergeBoard = (got) => {
+    const out = [], seen = new Set();
+    for (const g of got) for (const n of (Array.isArray(g.x.data?.list) ? g.x.data.list : [])) { const k = String(n.id || '') + '|' + String(n.t || '') + '|' + String(n.date || ''); if (!seen.has(k)) { seen.add(k); out.push(n); } }
+    return { ...got[0].x.data, list: out, upd: Math.max(...got.map((g) => +g.x.data?.upd || 0)) };
+  };
+  const mergeTeacher = (got) => {
+    const o = { ...got[0].x.data, secs: {}, subj: {}, ctSubj: {}, ct: '', pr: false, sf: false };
+    for (const g of got) {
+      const d = g.x.data || {};
+      for (const k of Object.keys(d.secs || {})) route.sec.set(k, g.i);
+      if (d.ct) route.sec.set(String(d.ct), g.i);
+      Object.assign(o.secs, d.secs || {}); Object.assign(o.subj, d.subj || {}); Object.assign(o.ctSubj, d.ctSubj || {});
+      if (d.ct && !o.ct) o.ct = d.ct;
+      o.pr = o.pr || !!d.pr; o.sf = o.sf || !!d.sf;
+    }
+    return o;
+  };
+  const merger = (path) => (path === 'notices/board' || path === 'notices/principal') ? mergeBoard : /^teachers\/[^/]+$/.test(path) ? mergeTeacher : null;
+  const read = (kind) => (path) => {
+    if (path === 'meta/app') return list[0][kind](path);
+    if (/^(loginIndex|tLogin)\//.test(path)) return readAll(kind, path);
+    const m = merger(path);
+    return m ? mergeDocs(kind, path, m) : readOne(kind, path);
+  };
+  const target = (path) => { const r = pick(path); const i = r && r[2] !== undefined ? r[2] : (live()[0] || [0, 0])[1]; return list[i]; };
+  let signing = false, last = null; const cbs = [];
+  const fire = () => { if (signing) return; const u = primary(), k = u ? u.uid : ''; if (k === last) return; last = k; cbs.forEach((cb) => cb(u)); };
+  let init = 0;
+  list.forEach((p) => p.onAuth(() => { init++; if (init >= list.length) fire(); }));
+  return {
+    onAuth: (cb) => { cbs.push(cb); if (init >= list.length) { const u = primary(); last = u ? u.uid : ''; cb(u); } },
+    user: primary,
+    signIn: async (email, pw) => {
+      signing = true;
+      try {
+        const res = await Promise.allSettled(list.map((p) => p.signIn(email, pw)));
+        if (!res.some((x) => x.status === 'fulfilled')) throw res[0].reason;
+        await learn(true);
+      } finally { signing = false; }
+      fire();
+    },
+    signOut: async () => { signing = true; try { await Promise.allSettled(list.map((p) => p.signOut())); } finally { signing = false; } route.adm.clear(); route.sec.clear(); fire(); },
+    claims: async (refresh) => {
+      await learn(refresh);
+      const all = []; for (const [p] of live()) { try { all.push((await p.claims(false)) || {}); } catch { /* offline */ } }
+      if (!all.length) return {};
+      const u = (k) => [...new Set(all.flatMap((c) => (Array.isArray(c[k]) ? c[k].map(String) : [])))];
+      return { ...all[0], a: u('a'), s: u('s'), pr: all.some((c) => String(c.pr || '') === '1') ? '1' : '', np: all.some((c) => String(c.np || '') === '1') ? '1' : '' };
+    },
+    changePassword: async (pw, current) => { for (const [p] of live()) await p.changePassword(pw, current); },
+    getCache: read('getCache'),
+    getServer: read('getServer'),
+    setMerge: async (path, data) => {
+      if (path === 'notices/principal') { await Promise.all(live().map(([p]) => p.setMerge(path, data))); return; }   // the principal exists in every project
+      return target(path).setMerge(path, data);
+    },
+    removeField: (path, field, extra) => target(path).removeField(path, field, extra),
+    saveCells: (path, head, cells, by, ulClear) => target(path).saveCells(path, head, cells, by, ulClear),
+  };
+}
+
 let _api;
 export async function api() {
   if (_api) return _api;
-  _api = DEMO ? (await import('./demo.js')).demoApi() : firebaseApi();
+  _api = DEMO ? (await import('./demo.js')).demoApi() : multiApi();
   return _api;
 }
 
