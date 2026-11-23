@@ -403,7 +403,7 @@ function showHome() {
       h('div', { class: 'gp-ic' }, icon(out ? 'directions_walk' : 'hourglass_top')),
       h('div', { class: 'gp-tx' },
         h('div', { class: 'gp-k' }, out ? 'Left school' : wait ? 'Gate pass · Awaiting approval' : 'Gate pass approved', h('span', null, gp.id)),
-        h('div', { class: 'gp-t' }, out ? `Picked up by ${who}` : `${who} is coming to pick up ${firstName(s.name) || s.name}`),
+        h('div', { class: 'gp-t' }, out ? `Picked up by ${who}` : `${who} is at the school to pick up ${firstName(s.name) || s.name}`),
         h('div', { class: 'gp-s' }, [`Pass issued at ${time12(gp.time)}`, gp.reason].filter(Boolean).join('  ·  '))),
       out ? h('div', { class: 'gp-time' }, time12(gp.out)) : null);
   }
