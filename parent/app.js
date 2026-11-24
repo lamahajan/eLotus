@@ -231,19 +231,7 @@ function showHome() {
   Prefs.remove('tab');
   const st = { kids: new Map(), order: [], sel: null, tab: 'home', hw: new Map(), notices: null, err: null, loading: true, attView: 'session' };
   const main = h('main', { class: 'content' });
-  const refBtn = iconBtn('refresh', async () => {
-    refBtn.classList.add('spinning');
-    snackbar('Refreshing…');
-    try {
-      await refresh();
-      snackbar('Everything is up to date');
-    } catch {
-      snackbar('Couldn’t refresh. Please check your internet.');
-    } finally {
-      refBtn.classList.remove('spinning');
-    }
-  }, 'Refresh', 'glassy');
-  const bar = topBar({ title: '', actions: [refBtn, themeBtn(), iconBtn('logout', () => logout(), 'Sign out', 'glassy')] });
+  const bar = topBar({ title: '', actions: [] });
   bar.querySelector('.topbar-actions').style.gap = '8px';
   const nav = h('nav', { class: 'navbar', role: 'tablist' });
   const page = h('div', { class: 'page has-nav' }, bar, main, nav);
@@ -319,7 +307,49 @@ function showHome() {
             avatarLetter(k.name, i % 2 ? 'g2' : ''),
             h('div', { class: 'li-body' }, h('div', { class: 'li-title' }, k.name), h('div', { class: 'li-sub' }, `Class ${k.classText} · Adm ${k.adm}${k.roll ? ' · Roll ' + k.roll : ''}`)),
             x === st.sel ? icon('check_circle') : icon('chevron_right')));
-        })] : null));
+        })] : null,
+
+      // Actions card: Refresh data & Sign out
+      h('div', { class: 'card', style: { width: '100%', margin: '12px 0 8px 0', padding: '6px' } },
+        ripple(h('button', {
+          class: 'li tap',
+          type: 'button',
+          style: { minHeight: '52px', padding: '10px 14px' },
+          onclick: async () => {
+            done();
+            snackbar('Refreshing…');
+            try {
+              await refresh();
+              snackbar('Everything is up to date');
+            } catch {
+              snackbar('Couldn’t refresh. Please check your internet.');
+            }
+          }
+        },
+        h('div', { class: 'li-lead', style: { width: '38px', height: '38px', borderRadius: '12px' } }, icon('refresh')),
+        h('div', { class: 'li-body' },
+          h('div', { class: 'li-title', style: { fontSize: '14px' } }, 'Refresh data'),
+          h('div', { class: 'li-sub' }, 'Fetch latest fees, attendance, notices')),
+        h('div', { class: 'li-trail' }, icon('chevron_right')))),
+
+        ripple(h('button', {
+          class: 'li tap',
+          type: 'button',
+          style: { minHeight: '52px', padding: '10px 14px' },
+          onclick: () => {
+            done();
+            logout();
+          }
+        },
+        h('div', { class: 'li-lead', style: { width: '38px', height: '38px', borderRadius: '12px', background: 'var(--error-container)', color: 'var(--error)' } }, icon('logout')),
+        h('div', { class: 'li-body' },
+          h('div', { class: 'li-title', style: { fontSize: '14px', color: 'var(--error)' } }, 'Sign out'),
+          h('div', { class: 'li-sub' }, 'Log out of this device')),
+        h('div', { class: 'li-trail' }, icon('chevron_right'))))
+      ),
+
+      btn('tonal', 'Close', () => done(), { class: 'btn-big', style: { width: '100%' } })
+    ));
     if (adm && adm !== st.sel) { st.sel = adm; Prefs.set('child', adm); render(true); }
   }
   /// Student details (father, mother, date of birth ...): in the profile sheet, and on the PC dashboard beside the home screen

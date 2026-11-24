@@ -277,19 +277,7 @@ function showHome() {
   Prefs.remove('ttab');
   const st = { t: null, err: null, loading: true, daysAgo: 0, tab: 'home', notices: null, today: null };
   const main = h('main', { class: 'content' });
-  const refBtn = iconBtn('refresh', async () => {
-    refBtn.classList.add('spinning');
-    snackbar('Refreshing…');
-    try {
-      await load(true);
-      snackbar('Everything is up to date');
-    } catch {
-      snackbar('Couldn’t refresh. Please check your internet.');
-    } finally {
-      refBtn.classList.remove('spinning');
-    }
-  }, 'Refresh', 'glassy');
-  const bar = topBar({ title: '', actions: [refBtn, themeBtn(), iconBtn('logout', () => logout(), 'Sign out', 'glassy')] });
+  const bar = topBar({ title: '', actions: [] });
   bar.querySelector('.topbar-actions').style.gap = '8px';
   const nav = h('nav', { class: 'navbar', role: 'tablist' });
   const page = h('div', { class: 'page has-nav' }, bar, main, nav);
@@ -320,11 +308,88 @@ function showHome() {
     clear(title);
     const t = st.t;
     const tabName = (TTABS.find((x) => x.id === st.tab) || TTABS[0]).label;
+    const sw = t ? ripple(h('button', {
+      class: 'kid-switch',
+      type: 'button',
+      'aria-label': 'Teacher profile and account menu',
+      onclick: openTeacherProfile
+    },
+    avatarLetter(t.name, 'sm'),
+    h('span', { class: 't' },
+      h('span', { class: 'n' }, t.name.split(/\s+/)[0]),
+      h('span', { class: 'c' }, t.ct ? 'Class ' + t.ct : `${t.sections.length} classes`)),
+    icon('keyboard_arrow_down')
+    )) : null;
+
     title.append(h('div', { class: 'app-head' },
       schoolId(),
       h('div', { class: 'crumb' }, h('span', null, CFG.schoolName || 'School'), icon('chevron_right'), h('b', null, tabName)),
-      t ? h('div', { class: 'kid-switch', style: { cursor: 'default' } }, avatarLetter(t.name, 'sm'),
-        h('span', { class: 't' }, h('span', { class: 'n' }, t.name.split(/\s+/)[0]), h('span', { class: 'c' }, t.ct ? 'Class ' + t.ct : `${t.sections.length} classes`))) : null));
+      sw));
+  }
+
+  async function openTeacherProfile() {
+    const t = st.t;
+    if (!t) return;
+    await sheet((done) => h('div', { class: 'menu-sheet teacher-profile-sheet' },
+      // Header Card
+      h('div', { class: 'card profile-card', style: { width: '100%', margin: '0 0 12px 0' } },
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px' } },
+          avatarLetter(t.name, 'sm', { style: { width: '48px', height: '48px', fontSize: '18px' } }),
+          h('div', { style: { minWidth: 0, flex: 1 } },
+            h('h2', { style: { fontSize: '18px', fontWeight: '700', margin: 0, color: 'var(--on-surface)' } }, t.name),
+            h('div', { style: { fontSize: '12.5px', color: 'var(--primary)', fontWeight: '600', marginTop: '2px' } },
+              t.ct ? `Class Teacher · ${sectionText(t.ct)}` : 'Teacher'),
+            h('div', { style: { fontSize: '11.5px', color: 'var(--on-surface-variant)', marginTop: '2px' } },
+              a.user()?.email || `${t.uid || ''}@${DOMAIN}`))),
+        h('div', { class: 'kvs' }, [
+          ['Role', t.principal ? 'Principal / Teacher' : 'Teacher'],
+          ['Class Teacher', t.ct ? sectionText(t.ct) : 'None assigned'],
+          ['Assigned Classes', t.sections.map(sectionText).join(', ') || 'None'],
+          ['Subjects', Object.values(t.subj).filter(Boolean).join(', ') || 'All Scholastic'],
+          ['School', CFG.schoolName || CFG.appName || 'Lotus International School'],
+        ].filter(([, v]) => v).map(([k, v]) => h('div', null, h('span', null, k), h('b', null, v))))),
+
+      // Action items (Refresh data & Sign out)
+      h('div', { class: 'card', style: { width: '100%', margin: '0 0 12px 0', padding: '6px' } },
+        ripple(h('button', {
+          class: 'li tap',
+          type: 'button',
+          style: { minHeight: '52px', padding: '10px 14px' },
+          onclick: async () => {
+            done();
+            snackbar('Refreshing…');
+            try {
+              await load(true);
+              snackbar('Everything is up to date');
+            } catch {
+              snackbar('Couldn’t refresh. Please check your internet.');
+            }
+          }
+        },
+        h('div', { class: 'li-lead', style: { width: '38px', height: '38px', borderRadius: '12px' } }, icon('refresh')),
+        h('div', { class: 'li-body' },
+          h('div', { class: 'li-title', style: { fontSize: '14px' } }, 'Refresh data'),
+          h('div', { class: 'li-sub' }, 'Fetch latest students, classes, notices')),
+        h('div', { class: 'li-trail' }, icon('chevron_right')))),
+
+        ripple(h('button', {
+          class: 'li tap',
+          type: 'button',
+          style: { minHeight: '52px', padding: '10px 14px' },
+          onclick: () => {
+            done();
+            logout();
+          }
+        },
+        h('div', { class: 'li-lead', style: { width: '38px', height: '38px', borderRadius: '12px', background: 'var(--error-container)', color: 'var(--error)' } }, icon('logout')),
+        h('div', { class: 'li-body' },
+          h('div', { class: 'li-title', style: { fontSize: '14px', color: 'var(--error)' } }, 'Sign out'),
+          h('div', { class: 'li-sub' }, 'Log out of this device')),
+        h('div', { class: 'li-trail' }, icon('chevron_right'))))
+      ),
+
+      btn('tonal', 'Close', () => done(), { class: 'btn-big', style: { width: '100%' } })
+    ));
   }
   function schoolId() {
     return h('div', { class: 'school-id' }, schoolBadge(), h('div', { class: 'school-txt' }, h('b', null, CFG.appName || 'Lotus EduNest'), h('span', null, 'Teacher Portal')));
