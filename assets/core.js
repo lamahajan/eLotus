@@ -240,7 +240,7 @@ function multiApi() {
   const route = { adm: new Map(), sec: new Map() };       // admission no / section id -> index in list
   const live = () => list.map((p, i) => [p, i]).filter(([p]) => p.user());
   const primary = () => { const l = live(); return l.length ? l[0][0].user() : null; };
-  const RT = [[/^students\/(.+)$/, 'adm'], [/^homework\/(.+)_\d{4}-\d{2}-\d{2}$/, 'sec'], [/^marks\/([^~/]+)~/, 'sec'], [/^(?:tnotice|mkcfg)\/(.+)$/, 'sec']];
+  const RT = [[/^students\/(.+)$/, 'adm'], [/^(?:homework|att)\/(.+)_\d{4}-\d{2}-\d{2}$/, 'sec'], [/^marks\/([^~/]+)~/, 'sec'], [/^(?:tnotice|mkcfg)\/(.+)$/, 'sec']];
   const pick = (path) => { for (const [re, kind] of RT) { const m = re.exec(path); if (m) return [kind, m[1], route[kind].get(m[1])]; } return null; };
   const learn = async (refresh) => {
     for (const [p, i] of live()) {

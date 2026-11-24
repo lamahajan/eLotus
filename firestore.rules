@@ -1,6 +1,6 @@
 rules_version = '2';
 
-// EduNest Parent App + Teacher App - Firestore security rules (exam marks, notices, class notices: EduNest 1.0.53, web apps 1.6).
+// EduNest Parent App + Teacher App - Firestore security rules (attendance, exam marks, notices, class notices: EduNest 1.0.53, web apps 1.6).
 // Paste this whole file in Firebase console > Firestore Database > Rules, then press Publish.
 //
 // Who is who (the claims are put on every login by the school's EduNest server):
@@ -15,7 +15,7 @@ service cloud.firestore {
     function signedIn() { return request.auth != null; }
     function isParent() { return signedIn() && request.auth.token.r == 'p'; }
     function isTeacher() { return signedIn() && request.auth.token.r == 't'; }
-    function secOf(id) { return id.split('_')[0]; }                 // homework id = <secId>_<yyyy-mm-dd>
+    function secOf(id) { return id.split('_')[0]; }                 // homework / attendance id = <secId>_<yyyy-mm-dd>
     function mySection(id) { return secOf(id) in request.auth.token.s; }
 
     // Login helpers: admission no -> family account, teacher login name -> teacher account. Nothing personal inside.
@@ -60,6 +60,48 @@ service cloud.firestore {
       allow update: if isTeacher() && mySection(id) && shapeOk(id)
         && request.resource.data.subjects.diff(resource.data.subjects).affectedKeys().hasOnly(allowed(id));
       allow delete: if false;
+    }
+
+    // Daily student attendance: one document per section per day (id = <secId>_<yyyy-mm-dd>).
+    // EduNest ERP, Teacher App and Parent App use 'att' (with 'attendance' supported as alias).
+    // m is a map of student admission numbers to status ('P', 'A', 'L'), at most 200 students per section.
+    match /att/{id} {
+      function shapeOk(id) {
+        let d = request.resource.data;
+        let parts = id.split('_');
+        return parts.size() == 2
+          && d.keys().hasAll(['secId', 'date', 'm', 'upd', 'by'])
+          && d.keys().hasOnly(['secId', 'date', 'm', 'upd', 'by'])
+          && d.secId == secOf(id)
+          && d.date == parts[1]
+          && d.date.matches('^\\d{4}-\\d{2}-\\d{2}$')
+          && d.m is map && d.m.size() <= 200
+          && d.by is string && d.by.size() <= 100
+          && (d.upd is number || d.upd is timestamp || (d.upd is string && d.upd.size() <= 50));
+      }
+
+      allow get: if (isParent() || isTeacher()) && mySection(id);
+      allow list, delete: if false;
+      allow create, update: if isTeacher() && mySection(id) && shapeOk(id);
+    }
+    match /attendance/{id} {
+      function shapeOk(id) {
+        let d = request.resource.data;
+        let parts = id.split('_');
+        return parts.size() == 2
+          && d.keys().hasAll(['secId', 'date', 'm', 'upd', 'by'])
+          && d.keys().hasOnly(['secId', 'date', 'm', 'upd', 'by'])
+          && d.secId == secOf(id)
+          && d.date == parts[1]
+          && d.date.matches('^\\d{4}-\\d{2}-\\d{2}$')
+          && d.m is map && d.m.size() <= 200
+          && d.by is string && d.by.size() <= 100
+          && (d.upd is number || d.upd is timestamp || (d.upd is string && d.upd.size() <= 50));
+      }
+
+      allow get: if (isParent() || isTeacher()) && mySection(id);
+      allow list, delete: if false;
+      allow create, update: if isTeacher() && mySection(id) && shapeOk(id);
     }
 
     // Exam marks (Teacher App <-> EduNest Mark Entry). Written by EduNest: mkcfg (students, subjects, max marks of a section).

@@ -79,6 +79,17 @@ const Repo = {
     const s = await getFresh(path, 2 * MIN, force);
     return s.data && s.data.m && typeof s.data.m === 'object' ? s.data : { m: {} };
   },
+  async att(secId, date, force) {
+    const s = await getFresh(`att/${secId}_${date}`, 2 * MIN, force);
+    return s.data && s.data.m && typeof s.data.m === 'object' ? s.data : { secId, date, m: {} };
+  },
+  saveAtt({ secId, date, marks, teacherName }) {
+    const now = Date.now();
+    return a.setMerge(`att/${secId}_${date}`, {
+      secId, date, upd: now, by: teacherName,
+      m: marks,
+    });
+  },
 };
 
 /// "5TH-A" -> "5TH - A"
@@ -257,6 +268,7 @@ function postSheet(t, done) {
 // ------------------------------------------------------------------ home: Dashboard, Homework, Marks, Notices
 const TTABS = [
   { id: 'home', label: 'Dashboard', icon: 'space_dashboard' },
+  { id: 'att', label: 'Attendance', icon: 'event_available' },
   { id: 'hw', label: 'Homework', icon: 'menu_book' },
   { id: 'marks', label: 'Marks', icon: 'edit_note' },
 ];
@@ -349,6 +361,7 @@ function showHome() {
     if (st.loading) body = skeleton(4);
     else if (!t) body = messageBox(st.err ? 'wifi_off' : 'person_off', st.err ? errorText(st.err) : 'Your record has not arrived from the school yet. Pull down to check again in a while.', () => { st.loading = true; render(); load(true); });
     else if (!t.sections.length && !t.principal) body = messageBox('groups', 'No section or subject is assigned to you. Ask the office to set your subjects or class in EduNest (Setup > Teachers).');
+    else if (st.tab === 'att') body = attTab(t);
     else if (st.tab === 'hw') body = hwTab(t);
     else if (st.tab === 'marks') body = marksTab(t);
     else body = homeTab(t);
@@ -390,6 +403,7 @@ function showHome() {
         const school = row(sort(ns.filter((n) => n.src !== 'class'))), cls = row(sort(ns.filter((n) => n.src === 'class')));
         return school || cls ? h('div', null, h('div', { class: 'section-label' }, 'Notices & announcements'), school, cls) : null; })(),
       h('div', { class: 'wgrid' },
+        widget(() => go('att'), 'c-teal', 'event_available', t.ct ? sectionShort(t.ct) : '', 't-teal', 'Attendance', t.ct ? 'Class ' + sectionText(t.ct) : `${t.sections.length} classes`, 'Mark daily attendance', true),
         widget(() => go('hw'), 'c-blue', 'menu_book', posted === null ? '' : `${posted}/${total}`, posted !== null && posted >= total ? 't-green' : 't-blue', 'Homework today',
           posted === null ? '…' : posted >= total ? 'All posted' : `${total - posted} to post`, 'Post or update homework', true),
         widget(() => go('marks'), 'c-indigo', 'edit_note', '', '', 'Exam marks', `${t.sections.filter((sec) => t.allowed(sec).length).length} classes`, 'Enter marks for Mark Entry', true),
@@ -403,6 +417,337 @@ function showHome() {
         return secItem(t, sec, () => openSection(t, sec, istDay(0)), n === null ? '' : `homework ${n}/${mine.length}`);
       })));
   }
+
+  function attTab(t) {
+    const wrap = h('div', { class: 'v-tatt' });
+    const prefSec = () => Prefs.get('att:sec') || t.ct || t.sections[0] || '';
+    const setPrefSec = (v) => Prefs.set('att:sec', v);
+    let curSec = prefSec();
+    if (!t.sections.includes(curSec) && t.sections.length) curSec = t.sections[0];
+
+    const stAtt = {
+      secId: curSec,
+      daysAgo: 0,
+      customDate: null,
+      search: '',
+      cfg: null,
+      attDoc: null,
+      loading: true,
+      err: null,
+      marks: {},
+      origMarks: {},
+    };
+
+    const getDate = () => stAtt.customDate || istDay(stAtt.daysAgo);
+
+    const isDirty = () => {
+      const allKeys = new Set([...Object.keys(stAtt.marks), ...Object.keys(stAtt.origMarks)]);
+      for (const k of allKeys) {
+        if ((stAtt.marks[k] || '') !== (stAtt.origMarks[k] || '')) return true;
+      }
+      return false;
+    };
+
+    const withFreshToken = async (fn) => {
+      try { return await fn(); } catch (e) {
+        if (!String((e && (e.code || e.message)) || e).includes('permission-denied')) throw e;
+        try { await claims(true); } catch { throw e; }
+        return fn();
+      }
+    };
+
+    async function load(force) {
+      stAtt.loading = true;
+      stAtt.err = null;
+      renderWrap();
+      try {
+        const [cfg, doc] = await Promise.all([
+          withFreshToken(() => Repo.mkcfg(stAtt.secId, force)),
+          withFreshToken(() => Repo.att(stAtt.secId, getDate(), force)),
+        ]);
+        stAtt.cfg = cfg;
+        stAtt.attDoc = doc;
+        stAtt.marks = { ...(doc?.m || {}) };
+        stAtt.origMarks = { ...(doc?.m || {}) };
+      } catch (e) {
+        stAtt.err = e;
+      } finally {
+        stAtt.loading = false;
+        renderWrap();
+      }
+    }
+
+    async function switchSec(sec) {
+      if (sec === stAtt.secId) return;
+      if (isDirty()) {
+        const ok = await dialog({
+          icon: 'warning', title: 'Attendance not saved',
+          text: 'The attendance changes you made for this class are not saved yet. Leave without saving?',
+          actions: [{ label: 'Stay', value: false }, { label: 'Leave', value: true, kind: 'filled' }]
+        });
+        if (!ok) return;
+      }
+      stAtt.secId = sec;
+      setPrefSec(sec);
+      load(false);
+    }
+
+    async function switchDate(daysAgo, custom = null) {
+      if (stAtt.daysAgo === daysAgo && stAtt.customDate === custom) return;
+      if (isDirty()) {
+        const ok = await dialog({
+          icon: 'warning', title: 'Attendance not saved',
+          text: 'The attendance changes you made are not saved yet. Leave without saving?',
+          actions: [{ label: 'Stay', value: false }, { label: 'Leave', value: true, kind: 'filled' }]
+        });
+        if (!ok) return;
+      }
+      stAtt.daysAgo = daysAgo;
+      stAtt.customDate = custom;
+      load(false);
+    }
+
+    function renderWrap() {
+      clear(wrap);
+      if (!t.sections.length) {
+        wrap.append(messageBox('groups', 'No class or section is assigned to you.'));
+        return;
+      }
+
+      const isClassTeacher = t.ct === stAtt.secId;
+      const head = h('div', { class: 'greet2' },
+        h('div', null,
+          h('small', null, isClassTeacher ? 'Class Teacher · ' + sectionText(stAtt.secId) : sectionText(stAtt.secId)),
+          h('h1', null, 'Attendance')));
+
+      const secChips = [
+        h('div', { class: 'section-label', style: { marginTop: '8px' } }, 'Select class'),
+        h('div', { class: 'chips', role: 'group' },
+          t.sections.map((sec) => {
+            const isCt = sec === t.ct;
+            const on = sec === stAtt.secId;
+            return ripple(h('button', {
+              class: 'chip' + (on ? ' chip-active' : ''),
+              type: 'button',
+              'aria-pressed': String(on),
+              onclick: () => switchSec(sec)
+            },
+            isCt ? icon('star-fill') : null,
+            h('span', null, sectionText(sec) + (isCt ? ' (My Class)' : ''))));
+          }))
+      ];
+
+      const dateChips = [
+        h('div', { class: 'section-label' }, 'Attendance date'),
+        h('div', { class: 'chips daychips', role: 'group', style: { width: 'calc(100% - 32px)', margin: '0 auto' } },
+          Array.from({ length: 7 }, (_, i) => {
+            const on = stAtt.daysAgo === i && !stAtt.customDate;
+            const dStr = istDay(i);
+            return ripple(h('button', {
+              class: 'chip' + (on ? ' chip-active' : ''),
+              type: 'button',
+              'aria-pressed': String(on),
+              onclick: () => switchDate(i, null)
+            },
+            h('span', null, dayLabel(i)),
+            h('small', null, dayMon(dStr))));
+          }))
+      ];
+
+      wrap.append(head, ...secChips, ...dateChips);
+
+      if (stAtt.loading) {
+        wrap.append(skeleton(5));
+        return;
+      }
+      if (stAtt.err) {
+        wrap.append(messageBox('wifi_off', errorText(stAtt.err), () => load(true)));
+        return;
+      }
+      if (!stAtt.cfg || !Array.isArray(stAtt.cfg.st) || !stAtt.cfg.st.length) {
+        wrap.append(messageBox('groups', `No student roster found for ${sectionText(stAtt.secId)}. Open EduNest to sync the class roster.`));
+        return;
+      }
+
+      const studs = [...stAtt.cfg.st].sort((p, q) =>
+        (Number(p.r) || 9999) - (Number(q.r) || 9999) || String(p.n).localeCompare(String(q.n)));
+
+      const counts = { total: studs.length, P: 0, A: 0, L: 0, U: 0 };
+      for (const s of studs) {
+        const m = stAtt.marks[s.a];
+        if (m === 'P') counts.P++;
+        else if (m === 'A') counts.A++;
+        else if (m === 'L') counts.L++;
+        else counts.U++;
+      }
+      const marked = counts.P + counts.A + counts.L;
+      const pct = marked ? ((counts.P / counts.total) * 100).toFixed(1) : '0.0';
+
+      const statsBar = h('div', { class: 'att-stats-bar card' },
+        h('div', { class: 'att-stats-head' },
+          h('div', { class: 'att-stats-title' },
+            icon('analytics'),
+            h('b', null, niceDate(getDate())),
+            h('span', null, `· ${counts.total} students`)),
+          h('div', { class: 'att-pct' }, `${pct}% Present`)),
+        h('div', { class: 'att-pill-row' },
+          h('div', { class: 'att-stat-pill p-pill' }, h('span', { class: 'dot-p' }), h('b', null, counts.P), ' Present'),
+          h('div', { class: 'att-stat-pill a-pill' }, h('span', { class: 'dot-a' }), h('b', null, counts.A), ' Absent'),
+          h('div', { class: 'att-stat-pill l-pill' }, h('span', { class: 'dot-l' }), h('b', null, counts.L), ' Leave'),
+          counts.U > 0 ? h('div', { class: 'att-stat-pill u-pill' }, h('span', { class: 'dot-u' }), h('b', null, counts.U), ' Unmarked') : null));
+
+      const quickRow = h('div', { class: 'att-quick-row' },
+        btn('filled', 'Mark all present', () => {
+          for (const s of studs) stAtt.marks[s.a] = 'P';
+          renderWrap();
+        }, { icon: 'done_all', class: 'btn-att-all' }),
+        btn('tonal', 'Clear all', async () => {
+          const ok = await dialog({
+            icon: 'restart_alt', title: 'Clear attendance?',
+            text: `Reset all student attendance marks for ${sectionText(stAtt.secId)} on ${niceDate(getDate())}?`,
+            actions: [{ label: 'Cancel', value: false }, { label: 'Clear', value: true, kind: 'danger' }]
+          });
+          if (!ok) return;
+          stAtt.marks = {};
+          renderWrap();
+        }, { icon: 'restart_alt' }));
+
+      let searchEl = null;
+      if (studs.length > 5) {
+        const sIn = h('input', {
+          class: 'att-search-input',
+          type: 'search',
+          placeholder: 'Search by name or roll number…',
+          value: stAtt.search || '',
+          autocomplete: 'off'
+        });
+        sIn.addEventListener('input', () => {
+          stAtt.search = sIn.value.trim().toLowerCase();
+          filterRoster();
+        });
+        searchEl = h('div', { class: 'att-search-wrap' }, icon('search'), sIn);
+      }
+
+      const rosterWrap = h('div', { class: 'att-roster' });
+      const renderStudents = (list) => {
+        clear(rosterWrap);
+        if (!list.length) {
+          rosterWrap.append(h('div', { class: 'empty', style: { padding: '24px 0' } }, icon('search_off'), h('p', null, 'No student matches search.')));
+          return;
+        }
+        for (const s of list) {
+          const curVal = stAtt.marks[s.a] || null;
+          const row = h('div', { class: 'att-row' + (curVal ? ` att-is-${curVal.toLowerCase()}` : '') });
+
+          const roll = h('div', { class: 'att-roll' }, s.r || '—');
+          const info = h('div', { class: 'att-info' },
+            h('b', { class: 'att-name' }, s.n),
+            h('small', { class: 'att-adm' }, `Adm ${s.a}`));
+
+          const btnP = h('button', {
+            type: 'button',
+            class: 'att-tgl att-btn-p' + (curVal === 'P' ? ' active' : ''),
+            'aria-label': `${s.n} Present`,
+            title: 'Present',
+            onclick: () => {
+              stAtt.marks[s.a] = curVal === 'P' ? null : 'P';
+              renderWrap();
+            }
+          }, 'P');
+
+          const btnA = h('button', {
+            type: 'button',
+            class: 'att-tgl att-btn-a' + (curVal === 'A' ? ' active' : ''),
+            'aria-label': `${s.n} Absent`,
+            title: 'Absent',
+            onclick: () => {
+              stAtt.marks[s.a] = curVal === 'A' ? null : 'A';
+              renderWrap();
+            }
+          }, 'A');
+
+          const btnL = h('button', {
+            type: 'button',
+            class: 'att-tgl att-btn-l' + (curVal === 'L' ? ' active' : ''),
+            'aria-label': `${s.n} Leave`,
+            title: 'Leave',
+            onclick: () => {
+              stAtt.marks[s.a] = curVal === 'L' ? null : 'L';
+              renderWrap();
+            }
+          }, 'L');
+
+          const toggleGroup = h('div', { class: 'att-tgl-group', role: 'group' }, btnP, btnA, btnL);
+          row.append(roll, info, toggleGroup);
+          rosterWrap.append(row);
+        }
+      };
+
+      const filterRoster = () => {
+        const q = stAtt.search;
+        const filtered = q
+          ? studs.filter((s) => s.n.toLowerCase().includes(q) || String(s.r || '').includes(q) || String(s.a).includes(q))
+          : studs;
+        renderStudents(filtered);
+      };
+
+      filterRoster();
+
+      const dirty = isDirty();
+      const saveBar = h('div', { class: 'att-save-bar' });
+      const lastSavedText = stAtt.attDoc?.by
+        ? `Last saved by ${stAtt.attDoc.by}${stAtt.attDoc.upd ? ' · ' + time12(new Date(stAtt.attDoc.upd).toTimeString().slice(0, 5)) : ''}`
+        : 'Attendance not saved yet for this day';
+
+      const saveBtnLabel = dirty
+        ? `Save Attendance (${counts.P} Present, ${counts.A} Absent)`
+        : (stAtt.attDoc?.by ? 'Attendance Saved' : 'Save Attendance');
+
+      const bSave = btn('filled', saveBtnLabel, async () => {
+        if (!dirty && stAtt.attDoc?.by) return;
+        setBusy(bSave, true);
+        try {
+          const cleanMarks = {};
+          for (const [adm, val] of Object.entries(stAtt.marks)) {
+            if (val === 'P' || val === 'A' || val === 'L') cleanMarks[adm] = val;
+          }
+          await Repo.saveAtt({
+            secId: stAtt.secId,
+            date: getDate(),
+            marks: cleanMarks,
+            teacherName: t.name || 'Teacher'
+          });
+          stAtt.origMarks = { ...stAtt.marks };
+          stAtt.attDoc = {
+            secId: stAtt.secId,
+            date: getDate(),
+            upd: Date.now(),
+            by: t.name || 'Teacher',
+            m: cleanMarks
+          };
+          snackbar(`Attendance saved for ${sectionText(stAtt.secId)} (${counts.P} Present, ${counts.A} Absent).`);
+        } catch (e) {
+          snackbar(errorText(e));
+        } finally {
+          setBusy(bSave, false);
+          renderWrap();
+        }
+      }, {
+        icon: dirty ? 'save' : (stAtt.attDoc?.by ? 'check_circle' : 'save'),
+        class: 'btn-big att-save-btn' + (dirty ? ' att-save-dirty' : ''),
+        disabled: !dirty && !!stAtt.attDoc?.by
+      });
+
+      const note = h('div', { class: 'att-save-note' }, lastSavedText);
+      saveBar.append(note, bSave);
+
+      wrap.append(statsBar, quickRow, searchEl || null, rosterWrap, saveBar);
+    }
+
+    load(false);
+    return wrap;
+  }
+
   function hwTab(t) {
     const date = istDay(st.daysAgo);
     return h('div', { class: 'v-thw' },

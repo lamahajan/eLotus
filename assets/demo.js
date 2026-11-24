@@ -81,12 +81,16 @@ function seed() {
   docs['mkcfg/6TH-A'].st.forEach((x) => { x.k = '6TH'; });
   docs['marks/5TH-A~2026-2027~T1~PT~maths'] = { secId: '5TH-A', session: '2026-2027', term: 'T1', code: 'PT', subj: 'maths', by: 'Ravi Kumar', src: 't', upd: Date.now() - 86400e3,
     m: { 1024: 18, 1031: 17.5, 1036: 'AB', 1040: 20, 1047: 14 }, ul: { 1040: true } };
+  docs['att/5TH-A_' + istDay(0)] = {
+    secId: '5TH-A', date: istDay(0), upd: Date.now() - 3600e3, by: 'Ravi Kumar',
+    m: { '1024': 'P', '1031': 'P', '1036': 'P', '1040': 'P', '1047': 'P', '1052': 'A' }
+  };
   return docs;
 }
 
 export function demoApi() {
   let docs = load('docs', null);
-  if (!docs || docs['meta/app']?.v !== istDay(0) || !docs['mkcfg/5TH-A'] || !docs['notices/board']) { docs = seed(); docs['meta/app'].v = istDay(0); save('docs', docs); }
+  if (!docs || docs['meta/app']?.v !== istDay(0) || !docs['mkcfg/5TH-A'] || !docs['notices/board'] || !docs['att/5TH-A_' + istDay(0)]) { docs = seed(); docs['meta/app'].v = istDay(0); save('docs', docs); }
   const cache = new Set(load('cache', []));
   let user = load('user', null);
   const subs = new Set();
@@ -118,7 +122,13 @@ export function demoApi() {
     setMerge: async (path, data) => {
       await wait(350);
       const cur = docs[path] || {};
-      docs[path] = { ...cur, ...data, subjects: { ...(cur.subjects || {}), ...(data.subjects || {}) }, ...(data.n || cur.n ? { n: { ...(cur.n || {}), ...(data.n || {}) } } : {}), ...(data.list ? { list: data.list } : {}) };
+      docs[path] = {
+        ...cur, ...data,
+        subjects: { ...(cur.subjects || {}), ...(data.subjects || {}) },
+        ...(data.n || cur.n ? { n: { ...(cur.n || {}), ...(data.n || {}) } } : {}),
+        ...(data.list ? { list: data.list } : {}),
+        ...(data.m || cur.m ? { m: { ...(cur.m || {}), ...(data.m || {}) } } : {}),
+      };
       cache.add(path); persist();
     },
     saveCells: async (path, head, cells, by, ulClear) => {
